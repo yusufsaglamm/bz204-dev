@@ -44,7 +44,7 @@
                     <execution>
                         <id>default-cli</id>
                         <configuration>
-                            <mainClass>com.robotvacuum/com.robotvacuum.MainApp</mainClass>
+                            <mainClass>com.robotvacuum/com.robotvacuum.AnaUygulama</mainClass>
                             <launcher>app</launcher>
                             <jlinkZipName>app</jlinkZipName>
                             <jlinkImageName>app</jlinkImageName>

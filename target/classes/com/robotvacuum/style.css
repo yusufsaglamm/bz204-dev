@@ -1,21 +1,30 @@
 /* ============================================================
-   Robot Vacuum Simulation - Main Stylesheet
+   Robot Süpürge Simülasyonu - Ana CSS Stil Dosyası
+   ------------------------------------------------------------
+   Bu dosya JavaFX kullanıcı arayüzünün görsel temasını tanımlar.
+   Renk paleti: koyu lacivert + mavi vurgu tonları.
+   NOT: CSS sınıf/id isimleri Java kodunda referans verildiği için
+        Türkçeleştirilmemiştir; yalnızca yorumlar Türkçe eklenmiştir.
    ============================================================ */
 
-/* ---- Root & Base ---- */
+/* ---- Kök ve temel ayarlar ----
+   .root-pane: BorderPane'in en dış kabını stiller; arka plan rengini
+   ve uygulama genelinde geçerli yazı tipini tanımlar. */
 .root-pane {
     -fx-background-color: #1a1b2e;
     -fx-font-family: "Segoe UI", "Arial", sans-serif;
     -fx-font-size: 13px;
 }
 
-/* ---- Title Bar ---- */
+/* ---- Başlık çubuğu ----
+   .title-bar: Üstteki uygulama başlığı çubuğu (gradient arka plan). */
 .title-bar {
     -fx-background-color: linear-gradient(to right, #1a1b2e, #16213e);
     -fx-border-color: transparent transparent #2d3561 transparent;
     -fx-border-width: 0 0 1 0;
 }
 
+/* .title-label: "Robot Süpürge Simülasyonu" başlık metni stili */
 .title-label {
     -fx-text-fill: #e0e8ff;
     -fx-font-size: 20px;
@@ -23,6 +32,7 @@
     -fx-font-family: "Segoe UI", "Arial", sans-serif;
 }
 
+/* .status-badge: Üst sağda görünen durum rozeti (Hazır, Çalışıyor vb.) */
 .status-badge {
     -fx-background-color: #2d3561;
     -fx-text-fill: #80c8ff;
@@ -31,13 +41,15 @@
     -fx-font-size: 11px;
 }
 
-/* ---- Left Panel ---- */
+/* ---- Sol panel ----
+   .left-panel: Kontrolleri içeren sol kenar paneli */
 .left-panel {
     -fx-background-color: #16213e;
     -fx-border-color: transparent #2d3561 transparent transparent;
     -fx-border-width: 0 1 0 0;
 }
 
+/* .section-header: Sol paneldeki ana bölüm başlıkları (ör. "Araçlar") */
 .section-header {
     -fx-text-fill: #9ab0d8;
     -fx-font-size: 12px;
@@ -45,6 +57,7 @@
     -fx-padding: 6 0 2 0;
 }
 
+/* .section-header-small: Alt bölüm başlıkları (ör. "Robot Hızı") */
 .section-header-small {
     -fx-text-fill: #7890b8;
     -fx-font-size: 11px;
@@ -52,28 +65,33 @@
     -fx-padding: 4 0 1 0;
 }
 
+/* .label-small: Küçük açıklayıcı etiketler (ör. "Kir Türü:") */
 .label-small {
     -fx-text-fill: #8090a8;
     -fx-font-size: 11px;
 }
 
+/* .label-value: Değer gösteren etiketler (ör. konum, batarya yüzdesi) */
 .label-value {
     -fx-text-fill: #c8deff;
     -fx-font-size: 12px;
     -fx-font-weight: bold;
 }
 
+/* .label-hint: Kullanıcıya ipucu metinleri (ör. "Kaydır ve bırak") */
 .label-hint {
     -fx-text-fill: #506080;
     -fx-font-size: 10px;
 }
 
-/* ---- Radio Buttons ---- */
+/* ---- Radyo butonları ----
+   .rb-small: Kir türü ve algoritma seçimi için kullanılan radyo butonları */
 .rb-small {
     -fx-text-fill: #a0b8d8;
     -fx-font-size: 12px;
 }
 
+/* Radyo butonu yuvarlağı (işaretsiz hali) */
 .rb-small .radio {
     -fx-background-color: #2d3561;
     -fx-border-color: #4d5f8a;
@@ -81,12 +99,14 @@
     -fx-background-radius: 10;
 }
 
+/* Radyo butonu yuvarlağı (seçilmiş hali) */
 .rb-small:selected .radio {
     -fx-background-color: #4080c0;
     -fx-border-color: #60a0e0;
 }
 
-/* ---- Buttons ---- */
+/* ---- Butonlar ----
+   .btn-action: Birincil eylem butonu ("Kir Ekle" vb.) */
 .btn-action {
     -fx-background-color: #2d3f70;
     -fx-text-fill: #d0e8ff;
@@ -100,6 +120,7 @@
     -fx-background-color: #3d5090;
 }
 
+/* .btn-action-secondary: İkincil eylem butonu ("Mobilya Ekle" vb.) */
 .btn-action-secondary {
     -fx-background-color: #2a3a50;
     -fx-text-fill: #b0c8e8;
@@ -113,6 +134,7 @@
     -fx-background-color: #3a4a68;
 }
 
+/* .btn-start: Yeşil "Başlat" butonu */
 .btn-start {
     -fx-background-color: #1f6a40;
     -fx-text-fill: #b0ffd0;
@@ -125,6 +147,7 @@
 
 .btn-start:hover { -fx-background-color: #2a8a56; }
 
+/* .btn-pause: Sarı "Duraklat" butonu */
 .btn-pause {
     -fx-background-color: #6a5a1f;
     -fx-text-fill: #ffe0a0;
@@ -136,6 +159,7 @@
 
 .btn-pause:hover { -fx-background-color: #8a7a2a; }
 
+/* .btn-reset: Kırmızı "Sıfırla" butonu */
 .btn-reset {
     -fx-background-color: #5a1f1f;
     -fx-text-fill: #ffc0c0;
@@ -147,6 +171,7 @@
 
 .btn-reset:hover { -fx-background-color: #7a2a2a; }
 
+/* .btn-station: "İstasyona Dön" butonu */
 .btn-station {
     -fx-background-color: #2d4070;
     -fx-text-fill: #c0d8ff;
@@ -158,18 +183,22 @@
 
 .btn-station:hover { -fx-background-color: #3d5a9a; }
 
-/* ---- Sliders ---- */
+/* ---- Kaydırıcılar (Slider) ----
+   .speed-slider: Hız ve batarya kaydırıcılarının ortak stili */
 .speed-slider .track {
     -fx-background-color: #2d3561;
     -fx-border-color: #3d4880;
 }
 
+/* Kaydırıcının sürüklenebilir tutamağı */
 .speed-slider .thumb {
     -fx-background-color: #4080c0;
     -fx-background-radius: 10;
 }
 
-/* ---- Battery Bar ---- */
+/* ---- Batarya çubuğu ----
+   .battery-bar: Robotun mevcut batarya seviyesini gösteren ilerleme çubuğu.
+   Renk Java tarafında bataryanın seviyesine göre dinamik olarak ayarlanır. */
 .battery-bar {
     -fx-background-color: #1a2540;
     -fx-border-color: #3d5080;
@@ -183,7 +212,8 @@
     -fx-background-radius: 4;
 }
 
-/* ---- Canvas Scroll ---- */
+/* ---- Tuval kaydırma alanı ----
+   .canvas-scroll: Oda canvas'ını içeren ScrollPane'in arka planı */
 .canvas-scroll {
     -fx-background-color: #0f1223;
     -fx-background: #0f1223;
@@ -193,31 +223,35 @@
     -fx-background-color: #0f1223;
 }
 
-/* ---- Status Bar ---- */
+/* ---- Alt durum çubuğu ----
+   .status-bar: Alan istatistiklerini gösteren alt çubuk */
 .status-bar {
     -fx-background-color: #0d0f1e;
     -fx-border-color: #2d3561 transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
 }
 
+/* .stat-name: İstatistik adı (ör. "Toplam Alan") */
 .stat-name {
     -fx-text-fill: #6070a0;
     -fx-font-size: 10px;
 }
 
+/* .stat-value: İstatistik değeri (ör. "120 m²") */
 .stat-value {
     -fx-text-fill: #c0d8ff;
     -fx-font-size: 13px;
     -fx-font-weight: bold;
 }
 
-/* ---- GridPane labels in robot status ---- */
+/* ---- Robot durumu bölümündeki GridPane etiketleri ----
+   Sol paneldeki "Konum:", "Yön:", "Batarya:" etiketleri */
 .left-panel .grid-pane Label {
     -fx-text-fill: #8090a8;
     -fx-font-size: 11px;
 }
 
-/* ---- Scrollbar styling ---- */
+/* ---- Kaydırma çubuğu stilleri (yatay ve dikey) ---- */
 .scroll-bar:horizontal .track,
 .scroll-bar:vertical .track {
     -fx-background-color: #1a1b2e;
