@@ -1,7 +1,12 @@
 package com.robotvacuum.model;
 
 import com.robotvacuum.util.BFSYolBulucu;
-import javafx.beans.property.*;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -10,102 +15,67 @@ import java.util.Queue;
 import java.util.Random;
 
 /**
- * Simülasyonun merkezi model sınıfı (MVC mimarisinde "Model" katmanı).
+ * Simülasyonun beyni — MVC'deki "Model" katmanı.
  *
- * <p>Bu sınıf:
- * <ul>
- *   <li>Oda ve robot nesnelerini barındırır</li>
- *   <li>Tüm simülasyon durumunu (çalışıyor, duraklatıldı, vb.) tutar</li>
- *   <li>Temizlik algoritmalarının (Rastgele, Spiral, Duvar Takip) mantığını uygular</li>
- *   <li>JavaFX Property nesneleri ile View katmanının kolayca veri bağlaması (binding)
- *       yapmasını sağlar</li>
- *   <li>Her simülasyon adımında ({@link #tik()}) çağrılır ve modelin durumunu ilerletir</li>
- * </ul>
+ * Burada robotu nasıl hareket ettireceğimizi (3 algoritma), bataryayı,
+ * kirleri ve zamanı yönetiyoruz. View bu sınıfı sadece "dışarıdan" görür;
+ * binding üzerinden değerleri okur.
+ *
+ * Not (OOP - Tek Sorumluluk): UI ve hareket mantığı ayrılmış. UI'ı değiştirsek
+ * bile bu sınıfa dokunmaya gerek kalmıyor. Hareket algoritmaları da
+ * TemizlikAlgoritmasi enum'una göre seçildiği için yeni algoritma eklemek
+ * sadece bu dosyada bir switch case eklemek demek.
  */
 public class SimulasyonModeli {
 
-    // --- Oda ve Robot ---
+    // --- Sahnedeki nesneler ---
     private final Oda oda;
     private final Robot robot;
 
-    // --- View'a bağlama için gözlemlenebilir özellikler (JavaFX Properties) ---
-    /** Bataryanın gözlemlenebilir özelliği (0.0 - 100.0) */
-    private final DoubleProperty bataryaOzelligi = new SimpleDoubleProperty(100.0);
-    /** Robotun konumunu "(x, y)" formatında tutan özellik */
-    private final StringProperty konumOzelligi = new SimpleStringProperty("(0, 0)");
-    /** Robotun bakış yönünü gösteren özellik */
-    private final StringProperty yonOzelligi = new SimpleStringProperty("Doğu (→)");
-    /** Temizlenmiş alan hücre sayısı */
+    // --- JavaFX Property'leri ---
+    // View bunlara binding yapar; biz set ettiğimizde UI otomatik güncellenir.
+    private final DoubleProperty bataryaOzelligi       = new SimpleDoubleProperty(100.0);
+    private final StringProperty konumOzelligi         = new SimpleStringProperty("(0, 0)");
+    private final StringProperty yonOzelligi           = new SimpleStringProperty("Doğu (→)");
     private final IntegerProperty temizlenenAlanOzelligi = new SimpleIntegerProperty(0);
-    /** Odadaki toplam zemin (geçilebilir) hücre sayısı */
-    private final IntegerProperty toplamAlanOzelligi = new SimpleIntegerProperty(1);
-    /** Hâlâ kirli olan hücre sayısı */
-    private final IntegerProperty kirliAlanOzelligi = new SimpleIntegerProperty(0);
-    /** Simülasyon başlangıcından bu yana geçen süre ("dd:ss") */
-    private final StringProperty gecenSureOzelligi = new SimpleStringProperty("00:00");
-    /** Simülasyonun mevcut durumu (Hazır, Çalışıyor, Duraklatıldı, vb.) */
-    private final StringProperty durumOzelligi = new SimpleStringProperty("Hazır");
-    /** Toplanan toz miktarı (temizlenen kir sayısı) */
-    private final DoubleProperty toplananTozOzelligi = new SimpleDoubleProperty(0);
+    private final IntegerProperty toplamAlanOzelligi   = new SimpleIntegerProperty(1);
+    private final IntegerProperty kirliAlanOzelligi    = new SimpleIntegerProperty(0);
+    private final StringProperty gecenSureOzelligi     = new SimpleStringProperty("00:00");
+    private final StringProperty durumOzelligi         = new SimpleStringProperty("Hazır");
+    private final DoubleProperty toplananTozOzelligi   = new SimpleDoubleProperty(0);
 
     // --- Simülasyon durumu ---
-    /** Simülasyon çalışıyor mu? */
     private boolean calisiyor = false;
-    /** Simülasyon duraklatıldı mı? */
     private boolean duraklatildi = false;
-    /** Simülasyonun başlangıç zamanı (milisaniye) */
     private long simulasyonBaslangicZamani = 0;
-    /** Duraklatma süresince geçen toplam zaman (milisaniye) */
     private long duraklatmaSuresiMs = 0;
-    /** Duraklatmanın başladığı zaman */
     private long duraklatmaBaslangicZamani = 0;
 
-    // --- Ayarlar ---
-    /** Şu anda seçili olan temizlik algoritması */
+    // --- Kullanıcı ayarları ---
     private TemizlikAlgoritmasi algoritma = TemizlikAlgoritmasi.SPIRAL;
-    /** Kullanıcının seçtiği kir türü (kir ekleme modunda kullanılır) */
-    private KirTipi secilenKirTipi = KirTipi.TOZ;
-    /** Simülasyon hızı çarpanı (0.5 - 3.0) */
+    private KirTuru secilenKirTuru = KirTuru.TOZ;
     private double hizCarpani = 1.0;
 
-    // --- Algoritma durumu (spiral hareket için) ---
-    /** Rastgele yönler için kullanılan rastgele sayı üreteci */
+    // --- Spiral algoritmasının iç durumu ---
     private final Random rastgele = new Random();
-    /** Spiral algoritmada kullanılan yarıçap değeri */
-    private int spiralYaricap = 0;
-    /** Spiralin mevcut bacağındaki adım sayacı */
-    private int spiralAdim = 0;
-    /** Spiralin bir bacağında atılacak adım sayısı */
-    private int spiralBacaktakiAdimSayisi = 1;
-    /** Spirallerde tamamlanan bacak sayısı */
-    private int spiralBacakSayisi = 0;
-    /** Spiral hareket için mevcut yön */
+    private int spiralAdim = 0;                    // bu bacakta kaç adım attık
+    private int spiralBacaktakiAdimSayisi = 1;     // bu bacağın uzunluğu
+    private int spiralBacakSayisi = 0;             // tamamlanan bacak sayısı
     private Yon spiralYonu = Yon.DOGU;
 
-    // --- Yol takibi (BFS ile istasyona dönüş) ---
-    /** BFS ile hesaplanmış istasyona dönüş yolu (sırayla takip edilir) */
-    private Queue<int[]> planlananYol = new LinkedList<>();
+    // --- BFS ile şarja dönüş yolu ---
+    private final Queue<int[]> planlananYol = new LinkedList<>();
 
-    // --- Devam eden temizlik işlemi (çok adımlı kirler için) ---
-    /** Mevcut hücrede çok adımlı bir temizlik işlemi devam ediyor mu? */
+    // --- Çok adımlı kir temizliği (sıvı/leke) ---
     private boolean temizlikDevamEdiyor = false;
-    /** Mevcut temizlik işleminde kalan adım sayısı */
     private int kalanTemizlikAdimi = 0;
-    /** Her temizlik adımında düşülecek batarya maliyeti */
     private double bekleyenBataryaMaliyeti = 0;
 
     // --- İstatistikler ---
-    /** Simülasyon süresince toplanan toplam toz miktarı */
     private double toplamToplananToz = 0;
-    /** Robotun yaptığı toplam hareket sayısı */
     private int toplamHareket = 0;
-    /** Simülasyon başlamadan önceki başlangıç kir sayısı */
     private int baslangicKirliHucreSayisi = 0;
 
-    /**
-     * Yeni bir simülasyon modeli oluşturur.
-     * Varsayılan oda boyutu ve robot konumu (şarj istasyonu) ile başlar.
-     */
     public SimulasyonModeli() {
         oda = new Oda();
         robot = new Robot(oda.getSarjIstasyonuX(), oda.getSarjIstasyonuY());
@@ -114,29 +84,22 @@ public class SimulasyonModeli {
 
     // ==================== SİMÜLASYON KONTROLÜ ====================
 
-    /**
-     * Simülasyonu başlatır veya duraklatılmış durumdaysa devam ettirir.
-     * Çalışıyor durumuna geçildiğinde başlangıç istatistikleri kaydedilir.
-     */
+    /** İlk başlatma veya duraklatmadan devam etme. */
     public void basla() {
         if (!calisiyor) {
-            // İlk kez başlatılıyor
             calisiyor = true;
             duraklatildi = false;
             simulasyonBaslangicZamani = System.currentTimeMillis();
             baslangicKirliHucreSayisi = oda.getKirliHucreSayisi();
             durumOzelligi.set("Çalışıyor");
         } else if (duraklatildi) {
-            // Duraklatılmış simülasyona devam ediliyor
+            // Duraklatma süresini toplam zamandan düşmek için ne kadar bekledik onu hesapla
             duraklatildi = false;
             duraklatmaSuresiMs += System.currentTimeMillis() - duraklatmaBaslangicZamani;
             durumOzelligi.set("Çalışıyor");
         }
     }
 
-    /**
-     * Simülasyonu duraklatır. Çalışmıyorsa veya zaten duraklatılmışsa hiçbir şey yapmaz.
-     */
     public void duraklat() {
         if (calisiyor && !duraklatildi) {
             duraklatildi = true;
@@ -145,10 +108,7 @@ public class SimulasyonModeli {
         }
     }
 
-    /**
-     * Simülasyonu tamamen sıfırlar. Robot ve oda başlangıç konumlarına döner,
-     * tüm istatistikler ve algoritma durumu temizlenir.
-     */
+    /** Robot ve odayı başlangıç durumuna döndür. */
     public void sifirla() {
         calisiyor = false;
         duraklatildi = false;
@@ -158,7 +118,6 @@ public class SimulasyonModeli {
         kalanTemizlikAdimi = 0;
         toplamToplananToz = 0;
         toplamHareket = 0;
-        spiralYaricap = 0;
         spiralAdim = 0;
         spiralBacaktakiAdimSayisi = 1;
         spiralBacakSayisi = 0;
@@ -171,10 +130,7 @@ public class SimulasyonModeli {
         ozellikleriGuncelle();
     }
 
-    /**
-     * Robotu şarj istasyonuna gönderir. BFS algoritması ile en kısa yol hesaplanır
-     * ve robot bu yolu takip ederek istasyona ulaşır.
-     */
+    /** Robotu şarj istasyonuna geri gönder (BFS ile en kısa yoldan). */
     public void istasyonaDon() {
         if (!calisiyor || duraklatildi) return;
         istasyonaYolPlanla();
@@ -182,29 +138,20 @@ public class SimulasyonModeli {
         durumOzelligi.set("İstasyona Dönüyor");
     }
 
-    // ==================== SİMÜLASYON ADIMI (TICK) ====================
+    // ==================== TICK (Her kare çağrılır) ====================
 
     /**
-     * Her animasyon karesinde çağrılır ve simülasyonu bir adım ilerletir.
-     *
-     * <p>İşlem sırası:</p>
-     * <ol>
-     *   <li>Geçen süreyi güncelle</li>
-     *   <li>Batarya boşsa simülasyonu durdur</li>
-     *   <li>Şarj oluyorsa bataryayı doldur</li>
-     *   <li>Çok adımlı temizlik devam ediyorsa bir adım daha temizle</li>
-     *   <li>Batarya düşükse istasyona dönüş başlat</li>
-     *   <li>Algoritma veya planlı yola göre robotu hareket ettir</li>
-     *   <li>Mevcut hücrede kir varsa temizle</li>
-     * </ol>
+     * Animasyon her çalıştığında bu metot bir kez çağrılır.
+     * Sırası: zaman güncelle → batarya bitti mi? → şarj oluyor mu? →
+     * çok adımlı temizlik var mı? → düşük bataryada otomatik dönüş başlat →
+     * algoritmaya göre veya BFS yolu boyunca hareket et → mevcut hücreyi temizle.
      */
     public void tik() {
         if (!calisiyor || duraklatildi) return;
 
-        // Geçen süreyi güncelle
         gecenSureyiGuncelle();
 
-        // Batarya tamamen bitmişse simülasyonu durdur
+        // Batarya bittiyse simülasyonu durdur
         if (robot.bataryaBosMu()) {
             robot.setSarjOluyor(false);
             durumOzelligi.set("Batarya Bitti!");
@@ -217,7 +164,7 @@ public class SimulasyonModeli {
             robot.bataryaSarjEt(1.5);
             bataryaOzelligi.set(robot.getBatarya());
             if (robot.getBatarya() >= Robot.MAKS_BATARYA) {
-                // Şarj tamamlandı, normal çalışmaya geri dön
+                // Şarj tamam: tekrar çalışmaya başla
                 robot.setSarjOluyor(false);
                 robot.setIstasyonaDonuyor(false);
                 planlananYol.clear();
@@ -226,13 +173,12 @@ public class SimulasyonModeli {
             return;
         }
 
-        // Çok adımlı temizlik devam ediyorsa bir adım daha uygula
+        // Sıvı/leke gibi çok adımlı kirler için sayaç bitene kadar bekle
         if (temizlikDevamEdiyor) {
             kalanTemizlikAdimi--;
             robot.bataryaTuket(bekleyenBataryaMaliyeti);
             bataryaOzelligi.set(robot.getBatarya());
             if (kalanTemizlikAdimi <= 0) {
-                // Temizlik bitti, hücreyi temiz olarak işaretle
                 temizlikDevamEdiyor = false;
                 oda.getHucre(robot.getX(), robot.getY()).temizle();
                 toplamToplananToz++;
@@ -242,40 +188,40 @@ public class SimulasyonModeli {
             return;
         }
 
-        // Batarya düşükse otomatik olarak istasyona dön
+        // Batarya düştü ve henüz dönmüyorsak otomatik dönüş başlat
         if (robot.bataryaDusukMu() && !robot.istasyonaDonuyorMu()) {
             istasyonaDon();
         }
 
-        // Robotu hareket ettir: istasyona dönüş ise planlı yol, yoksa algoritma
+        // Hareket: BFS yolu varsa onu takip et, yoksa algoritmaya göre git
         if (robot.istasyonaDonuyorMu()) {
             yolBoyuncaHarketEt();
         } else {
             algoritmayaGoreHarketEt();
         }
 
-        // Mevcut hücreyi temizle
+        // Bulunduğu hücrede kir varsa temizlemeye başla
         Hucre mevcutHucre = oda.getHucre(robot.getX(), robot.getY());
         if (mevcutHucre != null && mevcutHucre.kirVarMi()) {
-            KirTipi kir = mevcutHucre.getKirTipi();
+            KirTuru kir = mevcutHucre.getKirTuru();
             int adimSayisi = kir.getTemizlikAdimSayisi();
             double adimBasinaMaliyet = Robot.HAREKET_BATARYA_MALIYETI * kir.getBataryaMaliyetCarpani();
             if (adimSayisi > 1) {
-                // Çok adımlı kir: ilk adımı şimdi uygula, kalan adımlar sonraki tick'lerde
+                // Sıvı veya leke: birden fazla geçişte temizlenir
                 temizlikDevamEdiyor = true;
                 kalanTemizlikAdimi = adimSayisi - 1;
                 bekleyenBataryaMaliyeti = adimBasinaMaliyet;
-                mevcutHucre.temizle(); // ilk adım
+                mevcutHucre.temizle(); // bu tick'lik adımı şimdi atıyoruz
             } else {
-                // Tek adımlı kir: hemen temizlenir
+                // Toz: tek geçişte bitiyor
                 mevcutHucre.temizle();
                 robot.bataryaTuket(adimBasinaMaliyet);
                 toplamToplananToz++;
                 toplananTozOzelligi.set(toplamToplananToz);
             }
             istatistikleriGuncelle();
-        } else {
-            // Kir yoksa hücreyi temizlenmiş olarak işaretle (gezilen alan kapsamı)
+        } else if (mevcutHucre != null) {
+            // Kir yoktu ama robot buradan geçti, "temizlendi" işaretle
             mevcutHucre.setTemiz(true);
         }
 
@@ -284,25 +230,21 @@ public class SimulasyonModeli {
 
     // ==================== HAREKET ====================
 
-    /**
-     * Robotu BFS ile hesaplanmış planlı yol boyunca bir adım ilerletir.
-     * Yol bittiğinde, eğer istasyondaysa şarja başlar.
-     */
+    /** BFS ile hesapladığımız yolun bir sonraki adımını uygula. */
     private void yolBoyuncaHarketEt() {
         if (planlananYol.isEmpty()) {
-            // Yol bitti - istasyona ulaştık mı?
+            // Yol bitti — istasyona vardık mı?
             if (robot.getX() == oda.getSarjIstasyonuX() && robot.getY() == oda.getSarjIstasyonuY()) {
                 robot.setSarjOluyor(true);
                 durumOzelligi.set("Şarj Oluyor...");
             } else {
-                // İstasyona ulaşamadıysak normal çalışmaya devam
+                // Bir şekilde istasyona varamadıysak normal çalışmaya dön
                 robot.setIstasyonaDonuyor(false);
                 durumOzelligi.set("Çalışıyor");
             }
             return;
         }
 
-        // Yolun bir sonraki adımına git
         int[] sonraki = planlananYol.poll();
         robot.bataryaTuket(Robot.HAREKET_BATARYA_MALIYETI);
         robot.konumAyarla(sonraki[0], sonraki[1]);
@@ -310,25 +252,17 @@ public class SimulasyonModeli {
         toplamHareket++;
     }
 
-    /**
-     * BFS algoritmasını kullanarak robottan şarj istasyonuna en kısa yolu hesaplar
-     * ve planlananYol kuyruğunu doldurur.
-     */
+    /** Robotun bulunduğu yerden şarj istasyonuna BFS ile yol planla. */
     private void istasyonaYolPlanla() {
         List<int[]> yol = BFSYolBulucu.yolBul(
-            oda, robot.getX(), robot.getY(),
-            oda.getSarjIstasyonuX(), oda.getSarjIstasyonuY()
+                oda, robot.getX(), robot.getY(),
+                oda.getSarjIstasyonuX(), oda.getSarjIstasyonuY()
         );
         planlananYol.clear();
         planlananYol.addAll(yol);
     }
 
-    /**
-     * Robot bir konuma taşındığında, bakış yönünü hareketin doğrultusuna göre günceller.
-     *
-     * @param yeniX Yeni X koordinatı
-     * @param yeniY Yeni Y koordinatı
-     */
+    /** Robotun yönünü hareket ettiği yöne göre ayarla. */
     private void yonuHareketeGoreGuncelle(int yeniX, int yeniY) {
         int dx = yeniX - robot.getX();
         int dy = yeniY - robot.getY();
@@ -340,30 +274,28 @@ public class SimulasyonModeli {
         }
     }
 
-    /**
-     * Seçili olan temizlik algoritmasına göre robotu bir adım hareket ettirir.
-     */
+    /** Seçili algoritmaya göre tek adım hareket et. */
     private void algoritmayaGoreHarketEt() {
         switch (algoritma) {
-            case RASTGELE -> rastgeleHarketEt();
-            case SPIRAL -> spiralHarketEt();
-            case DUVAR_TAKIP -> duvarTakipEt();
+            case RASTGELE:    rastgeleHarketEt(); break;
+            case SPIRAL:      spiralHarketEt();   break;
+            case DUVAR_TAKIP: duvarTakipEt();    break;
         }
     }
 
     /**
-     * RASTGELE algoritması: Robot rastgele bir yöne hareket eder.
-     * Zigzag hareketi azaltmak için %70 olasılıkla mevcut yönde devam eder.
+     * Rastgele algoritma: Robot rastgele bir yöne ilerler.
+     * Sürekli yön değiştirmesin diye %70 ihtimalle mevcut yönde devam eder.
      */
     private void rastgeleHarketEt() {
         List<Yon> kullanilabilirYonler = kullanilabilirYonleriGetir();
         if (kullanilabilirYonler.isEmpty()) return;
 
-        // Zigzag'i azaltmak için %70 olasılıkla mevcut yönde devam et
         if (kullanilabilirYonler.contains(robot.getYon()) && rastgele.nextDouble() > 0.3) {
+            // Mevcut yöne devam
             hareketiUygula(robot.getYon());
         } else {
-            // Aksi halde rastgele yeni bir yön seç
+            // Rastgele bir yön seç
             Yon secilen = kullanilabilirYonler.get(rastgele.nextInt(kullanilabilirYonler.size()));
             robot.setYon(secilen);
             hareketiUygula(secilen);
@@ -371,25 +303,24 @@ public class SimulasyonModeli {
     }
 
     /**
-     * SPIRAL algoritması: Robot sarmal şeklinde dışa doğru genişleyerek hareket eder.
-     * Her iki bacakta bir, bacak uzunluğu bir artar (1, 1, 2, 2, 3, 3, ...).
-     * Bir engele çarpınca sağa, sonra sola dönmeyi dener; tamamen tıkanırsa rastgele yöne gider.
+     * Spiral algoritma: önce 1 adım git, sağa dön, 1 adım, sağa dön, 2 adım,
+     * sağa dön, 2 adım ... şeklinde dışa doğru sarmal çizer.
+     * Engele takılırsa sağa, sonra sola, en son rastgele yön dener.
      */
     private void spiralHarketEt() {
-        // Dışa doğru spiral: her bacakta artan uzunlukla bir yönde hareket et
         if (yoneHareketEdebilirMi(spiralYonu)) {
             hareketiUygula(spiralYonu);
             spiralAdim++;
             if (spiralAdim >= spiralBacaktakiAdimSayisi) {
-                // Bacak tamamlandı, saat yönünde dön
+                // Bu bacak bitti; saat yönünde dön ve sayaçları güncelle
                 spiralAdim = 0;
                 spiralBacakSayisi++;
                 spiralYonu = spiralYonu.sagaDon();
-                // Her iki bacakta bir, bacak uzunluğunu artır (spiral genişlemesi)
+                // Her 2 bacakta bir bacak uzunluğu artıyor (spiral genişlemesi)
                 if (spiralBacakSayisi % 2 == 0) spiralBacaktakiAdimSayisi++;
             }
         } else {
-            // Engele çarpıldı: önce sağa, sonra sola, son çare olarak rastgele bir yön dene
+            // Spirali engele takıldık: önce sağa, sonra sola dene
             Yon sag = spiralYonu.sagaDon();
             Yon sol = spiralYonu.solaDon();
             if (yoneHareketEdebilirMi(sag)) {
@@ -401,7 +332,7 @@ public class SimulasyonModeli {
                 spiralAdim = 0;
                 hareketiUygula(spiralYonu);
             } else {
-                // Tüm yönler tıkalı, rastgele bir yön dene
+                // Hepsi kapalıysa rastgele bir yön bul
                 List<Yon> kullanilabilirYonler = kullanilabilirYonleriGetir();
                 if (!kullanilabilirYonler.isEmpty()) {
                     spiralYonu = kullanilabilirYonler.get(rastgele.nextInt(kullanilabilirYonler.size()));
@@ -412,49 +343,33 @@ public class SimulasyonModeli {
     }
 
     /**
-     * DUVAR_TAKIP algoritması: Sağ el kuralı ile duvar boyunca ilerler.
-     * Robot sağ elini sürekli duvarda tutuyormuş gibi hareket eder.
-     *
-     * <p>Öncelik sırası:
-     * <ol>
-     *   <li>Sağa dönebiliyorsa sağa dön (duvarı sağda tut)</li>
-     *   <li>Aksi halde düz devam et</li>
-     *   <li>Sola dön</li>
-     *   <li>Son çare olarak geri dön</li>
-     * </ol>
+     * Duvar Takip algoritma — sağ el kuralı:
+     * 1) Sağa dönebiliyorsan sağa dön (duvarı sağında tut)
+     * 2) Yoksa düz devam et
+     * 3) Yoksa sola dön
+     * 4) Hiçbiri olmazsa geri dön
      */
     private void duvarTakipEt() {
-        // Sağ el kuralı: önceliği sağ tarafa ver
         Yon sagYon = robot.getYon().sagaDon();
         Yon mevcutYon = robot.getYon();
         Yon solYon = robot.getYon().solaDon();
         Yon geriYon = robot.getYon().tersi();
 
         if (yoneHareketEdebilirMi(sagYon)) {
-            // Sağa dönebiliyorsa duvardan uzaklaşmamak için sağa dön
             robot.setYon(sagYon);
             hareketiUygula(sagYon);
         } else if (yoneHareketEdebilirMi(mevcutYon)) {
-            // Düz devam et
             hareketiUygula(mevcutYon);
         } else if (yoneHareketEdebilirMi(solYon)) {
-            // Sola dön
             robot.setYon(solYon);
             hareketiUygula(solYon);
         } else if (yoneHareketEdebilirMi(geriYon)) {
-            // Son çare: geri dön
             robot.setYon(geriYon);
             hareketiUygula(geriYon);
         }
-        // Tamamen tıkanmış - hareket yok
+        // Hiçbir yön açık değilse robot olduğu yerde kalır
     }
 
-    /**
-     * Robotun belirtilen yöne hareket edip edemeyeceğini kontrol eder.
-     *
-     * @param y Kontrol edilecek yön
-     * @return O yöndeki hücre geçilebilirse true
-     */
     private boolean yoneHareketEdebilirMi(Yon y) {
         int yeniX = robot.getX() + y.getDx();
         int yeniY = robot.getY() + y.getDy();
@@ -462,11 +377,8 @@ public class SimulasyonModeli {
     }
 
     /**
-     * Robotu belirtilen yöne bir adım hareket ettirir.
-     * Hareket sırasında batarya tüketilir ve toplam hareket sayısı artırılır.
-     * Eğer hareket mümkün değilse (engel/sınır), robot sağa döner ama yer değiştirmez.
-     *
-     * @param y Hareket yönü
+     * Robotu belirtilen yöne 1 adım götür.
+     * Hücre engel/sınır dışıysa hareket yok; sadece yön değiştirir.
      */
     private void hareketiUygula(Yon y) {
         int yeniX = robot.getX() + y.getDx();
@@ -477,16 +389,11 @@ public class SimulasyonModeli {
             robot.konumAyarla(yeniX, yeniY);
             toplamHareket++;
         } else {
-            // Çarpışma: hareket yok ama yön değişebilir
+            // Çarpışma: yerinde kal, sağa dön ki bir sonraki adımda farklı yöne baksın
             robot.setYon(y.sagaDon());
         }
     }
 
-    /**
-     * Robotun mevcut konumundan hareket edebileceği tüm yönleri listeler.
-     *
-     * @return Geçilebilir yönlerin listesi
-     */
     private List<Yon> kullanilabilirYonleriGetir() {
         List<Yon> yonler = new ArrayList<>();
         for (Yon y : Yon.values()) {
@@ -495,11 +402,8 @@ public class SimulasyonModeli {
         return yonler;
     }
 
-    // ==================== ÖZELLİKLER VE İSTATİSTİKLER ====================
+    // ==================== Property güncelleme ====================
 
-    /**
-     * Tüm gözlemlenebilir özellikleri günceller (View'da otomatik güncelleme tetiklenir).
-     */
     private void ozellikleriGuncelle() {
         bataryaOzelligi.set(robot.getBatarya());
         konumOzelligi.set("(" + robot.getX() + ", " + robot.getY() + ")");
@@ -508,18 +412,11 @@ public class SimulasyonModeli {
         istatistikleriGuncelle();
     }
 
-    /**
-     * Temizlenen ve kirli alan istatistiklerini günceller.
-     */
     private void istatistikleriGuncelle() {
         temizlenenAlanOzelligi.set(oda.getTemizlenenHucreSayisi());
         kirliAlanOzelligi.set(oda.getKirliHucreSayisi());
     }
 
-    /**
-     * Geçen süreyi hesaplar ve "dd:ss" formatında günceller.
-     * Duraklatma süreleri toplam süreden düşülür.
-     */
     private void gecenSureyiGuncelle() {
         if (simulasyonBaslangicZamani == 0) return;
         long toplamMs = System.currentTimeMillis() - simulasyonBaslangicZamani - duraklatmaSuresiMs;
@@ -529,84 +426,45 @@ public class SimulasyonModeli {
         gecenSureOzelligi.set(String.format("%02d:%02d", dakika, saniye));
     }
 
-    // ==================== GETTER / SETTER METODLARI ====================
+    // ==================== Getter / Setter ====================
 
-    /** @return Simülasyondaki oda nesnesi */
     public Oda getOda() { return oda; }
-
-    /** @return Simülasyondaki robot nesnesi */
     public Robot getRobot() { return robot; }
-
-    /** @return Simülasyon çalışıyor mu? */
     public boolean calisiyorMu() { return calisiyor; }
-
-    /** @return Simülasyon duraklatıldı mı? */
     public boolean duraklatildiMi() { return duraklatildi; }
 
-    /** @return Mevcut temizlik algoritması */
     public TemizlikAlgoritmasi getAlgoritma() { return algoritma; }
-
-    /**
-     * Aktif temizlik algoritmasını değiştirir.
-     * Spiral algoritmasının iç durumu da sıfırlanır.
-     *
-     * @param algoritma Yeni temizlik algoritması
-     */
     public void setAlgoritma(TemizlikAlgoritmasi algoritma) {
         this.algoritma = algoritma;
-        // Spiral durumunu sıfırla (yeni algoritma seçildiğinde temiz başlangıç)
-        spiralYaricap = 0; spiralAdim = 0;
-        spiralBacaktakiAdimSayisi = 1; spiralBacakSayisi = 0;
+        // Algoritma değişince spiral sayaçlarını sıfırla
+        spiralAdim = 0;
+        spiralBacaktakiAdimSayisi = 1;
+        spiralBacakSayisi = 0;
         spiralYonu = Yon.DOGU;
     }
 
-    /** @return Şu anda seçili olan kir türü */
-    public KirTipi getSecilenKirTipi() { return secilenKirTipi; }
+    public KirTuru getSecilenKirTuru() { return secilenKirTuru; }
+    public void setSecilenKirTuru(KirTuru tur) { this.secilenKirTuru = tur; }
 
-    /**
-     * Kir ekleme modu için seçili kir türünü değiştirir.
-     *
-     * @param tip Yeni kir türü
-     */
-    public void setSecilenKirTipi(KirTipi tip) { this.secilenKirTipi = tip; }
-
-    /** @return Simülasyon hız çarpanı (0.5 - 3.0) */
     public double getHizCarpani() { return hizCarpani; }
-
-    /**
-     * Simülasyon hızını değiştirir. 1.0 = normal hız.
-     *
-     * @param hizCarpani Yeni hız çarpanı
-     */
     public void setHizCarpani(double hizCarpani) { this.hizCarpani = hizCarpani; }
 
-    // Gözlemlenebilir özelliklere erişim sağlayan metodlar
-    /** @return Bataryanın gözlemlenebilir özelliği */
-    public DoubleProperty bataryaOzelligi() { return bataryaOzelligi; }
-    /** @return Robotun konumunun gözlemlenebilir özelliği */
-    public StringProperty konumOzelligi() { return konumOzelligi; }
-    /** @return Robotun yönünün gözlemlenebilir özelliği */
-    public StringProperty yonOzelligi() { return yonOzelligi; }
-    /** @return Temizlenen alanın gözlemlenebilir özelliği */
-    public IntegerProperty temizlenenAlanOzelligi() { return temizlenenAlanOzelligi; }
-    /** @return Toplam alanın gözlemlenebilir özelliği */
-    public IntegerProperty toplamAlanOzelligi() { return toplamAlanOzelligi; }
-    /** @return Kirli alanın gözlemlenebilir özelliği */
-    public IntegerProperty kirliAlanOzelligi() { return kirliAlanOzelligi; }
-    /** @return Geçen sürenin gözlemlenebilir özelliği */
-    public StringProperty gecenSureOzelligi() { return gecenSureOzelligi; }
-    /** @return Simülasyon durumunun gözlemlenebilir özelliği */
-    public StringProperty durumOzelligi() { return durumOzelligi; }
-    /** @return Toplanan tozun gözlemlenebilir özelliği */
-    public DoubleProperty toplananTozOzelligi() { return toplananTozOzelligi; }
+    // --- View'in binding yapacağı property'ler ---
+    public DoubleProperty bataryaOzelligi()        { return bataryaOzelligi; }
+    public StringProperty konumOzelligi()          { return konumOzelligi; }
+    public StringProperty yonOzelligi()            { return yonOzelligi; }
+    public IntegerProperty temizlenenAlanOzelligi(){ return temizlenenAlanOzelligi; }
+    public IntegerProperty toplamAlanOzelligi()    { return toplamAlanOzelligi; }
+    public IntegerProperty kirliAlanOzelligi()     { return kirliAlanOzelligi; }
+    public StringProperty gecenSureOzelligi()      { return gecenSureOzelligi; }
+    public StringProperty durumOzelligi()          { return durumOzelligi; }
+    public DoubleProperty toplananTozOzelligi()    { return toplananTozOzelligi; }
 
-    /**
-     * Toplam başlangıç kir sayısını döndürür.
-     * Yüzde hesabı için sıfıra bölünmeyi engellemek üzere en az 1 döner.
-     *
-     * @return Başlangıçtaki toplam kir sayısı (en az 1)
-     */
+    /** Yüzde hesabında 0'a bölünmesin diye en az 1 dön. */
     public int getToplamBaslangicKirSayisi() {
-        return Math.max(1, baslangicKirliHucreSayisi > 0 ? baslangicKirliHucreSayisi : oda.getKirliHucreSayisi() + (int) toplamToplananToz);
+        int sayi = baslangicKirliHucreSayisi > 0
+                ? baslangicKirliHucreSayisi
+                : oda.getKirliHucreSayisi() + (int) toplamToplananToz;
+        return Math.max(1, sayi);
     }
 }

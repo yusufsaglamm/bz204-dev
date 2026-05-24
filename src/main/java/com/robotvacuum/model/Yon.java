@@ -1,97 +1,65 @@
 package com.robotvacuum.model;
 
 /**
- * Robotun hareket edebileceği ana yönleri temsil eden enum sınıfı.
- * Her yön, ızgara üzerindeki X ve Y eksenlerindeki yer değiştirme miktarını
- * (dx, dy) ve kullanıcıya gösterilecek Türkçe adını içerir.
+ * Robotun bakabileceği 4 ana yön.
+ * Her yön x/y eksenindeki adım büyüklüğünü ve UI'da görünen adı taşır.
+ *
+ * Not (OOP): Enum içine davranış (tersi, sağaDön, solaDön) gömdük.
+ * Böylece "yön değişimi" mantığı tek bir yerden yönetiliyor, başka
+ * yerlerde switch-case tekrarlamak zorunda kalmıyoruz.
  */
 public enum Yon {
 
-    /** Kuzey yönü: Y ekseninde -1 birim (yukarı) */
     KUZEY(0, -1, "Kuzey (↑)"),
+    DOGU (1,  0, "Doğu (→)"),
+    GUNEY(0,  1, "Güney (↓)"),
+    BATI (-1, 0, "Batı (←)");
 
-    /** Doğu yönü: X ekseninde +1 birim (sağ) */
-    DOGU(1, 0, "Doğu (→)"),
-
-    /** Güney yönü: Y ekseninde +1 birim (aşağı) */
-    GUNEY(0, 1, "Güney (↓)"),
-
-    /** Batı yönü: X ekseninde -1 birim (sol) */
-    BATI(-1, 0, "Batı (←)");
-
-    /** X eksenindeki yer değiştirme miktarı */
+    // x ve y'deki adım miktarı (örn. doğuda dx=+1)
     private final int dx;
-
-    /** Y eksenindeki yer değiştirme miktarı */
     private final int dy;
-
-    /** Kullanıcı arayüzünde görüntülenecek Türkçe ad */
     private final String gorunenAd;
 
-    /**
-     * Yön enum sabiti oluşturucusu.
-     *
-     * @param dx        X eksenindeki yer değiştirme (-1, 0 veya +1)
-     * @param dy        Y eksenindeki yer değiştirme (-1, 0 veya +1)
-     * @param gorunenAd Kullanıcıya gösterilecek Türkçe yön adı
-     */
     Yon(int dx, int dy, String gorunenAd) {
         this.dx = dx;
         this.dy = dy;
         this.gorunenAd = gorunenAd;
     }
 
-    /** @return X eksenindeki yer değiştirme miktarı */
     public int getDx() { return dx; }
-
-    /** @return Y eksenindeki yer değiştirme miktarı */
     public int getDy() { return dy; }
-
-    /** @return Kullanıcı arayüzünde görüntülenecek Türkçe ad */
     public String getGorunenAd() { return gorunenAd; }
 
-    /**
-     * Bu yönün tam tersini (180°) döndürür.
-     * Örneğin KUZEY'in tersi GUNEY'dir.
-     *
-     * @return Zıt yön
-     */
+    /** Yönün tam tersini döndürür (kuzey↔güney, doğu↔batı). */
     public Yon tersi() {
-        return switch (this) {
-            case KUZEY -> GUNEY;
-            case GUNEY -> KUZEY;
-            case DOGU -> BATI;
-            case BATI -> DOGU;
-        };
+        switch (this) {
+            case KUZEY: return GUNEY;
+            case GUNEY: return KUZEY;
+            case DOGU:  return BATI;
+            case BATI:  return DOGU;
+            default:    return this;
+        }
     }
 
-    /**
-     * Saat yönünde 90° döndürülmüş yönü döndürür.
-     * Örneğin KUZEY → DOGU → GUNEY → BATI → KUZEY.
-     *
-     * @return Saat yönünde 90° dönmüş yön
-     */
+    /** Saat yönünde 90° döner. (Kuzey → Doğu → Güney → Batı → Kuzey) */
     public Yon sagaDon() {
-        return switch (this) {
-            case KUZEY -> DOGU;
-            case DOGU -> GUNEY;
-            case GUNEY -> BATI;
-            case BATI -> KUZEY;
-        };
+        switch (this) {
+            case KUZEY: return DOGU;
+            case DOGU:  return GUNEY;
+            case GUNEY: return BATI;
+            case BATI:  return KUZEY;
+            default:    return this;
+        }
     }
 
-    /**
-     * Saat yönünün tersine 90° döndürülmüş yönü döndürür.
-     * Örneğin KUZEY → BATI → GUNEY → DOGU → KUZEY.
-     *
-     * @return Saat yönünün tersine 90° dönmüş yön
-     */
+    /** Saat yönünün tersine 90° döner. */
     public Yon solaDon() {
-        return switch (this) {
-            case KUZEY -> BATI;
-            case BATI -> GUNEY;
-            case GUNEY -> DOGU;
-            case DOGU -> KUZEY;
-        };
+        switch (this) {
+            case KUZEY: return BATI;
+            case BATI:  return GUNEY;
+            case GUNEY: return DOGU;
+            case DOGU:  return KUZEY;
+            default:    return this;
+        }
     }
 }

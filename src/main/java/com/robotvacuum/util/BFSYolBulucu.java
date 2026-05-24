@@ -2,107 +2,105 @@ package com.robotvacuum.util;
 
 import com.robotvacuum.model.Oda;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
 /**
- * BFS (Breadth-First Search / Genişlik Öncelikli Arama) algoritmasını kullanan
- * yardımcı yol bulma sınıfı.
+ * BFS (Breadth-First Search) ile en kısa yolu bulan yardımcı sınıf.
  *
- * <p>Bu algoritma, ızgara üzerindeki iki nokta arasındaki <b>en kısa yolu</b>
- * (engellere takılmadan) bulmak için kullanılır. Robot süpürgenin şarj istasyonuna
- * en hızlı şekilde geri dönmesini sağlar.</p>
+ * BFS'i şöyle düşün: başlangıç hücresinden dalga gibi etrafa yayılırız.
+ * Hangi hücreye hangi sıradan ulaştığımızı bir kuyruğa yazıyoruz. Kuyrukta
+ * önce eklenen önce çıkar; dolayısıyla hedefe ilk ulaştığımız yol mutlaka
+ * en kısasıdır.
  *
- * <p><b>BFS Çalışma Prensibi:</b><br>
- * 1) Başlangıç noktasını kuyruğa ekle ve ziyaret edildi olarak işaretle.<br>
- * 2) Kuyruktan bir hücre çıkar; bu hücre hedefse arama biter.<br>
- * 3) Aksi halde komşu hücreleri (kuzey, doğu, güney, batı) kontrol et.<br>
- * 4) Henüz ziyaret edilmemiş ve geçilebilir komşu hücreleri kuyruğa ekle.<br>
- * 5) Her komşunun parent (üst) bilgisini sakla ki yol geri inşa edilebilsin.<br>
- * 6) Hedefe ulaşıldığında parent bilgileriyle yolu geri inşa et.</p>
+ * Robot şarja dönerken kullanıyoruz: "bulunduğum hücreden istasyona kaç
+ * kareyle giderim?" sorusunun cevabını veriyor.
  */
 public class BFSYolBulucu {
 
     /**
-     * (baslangicX, baslangicY) noktasından (hedefX, hedefY) noktasına en kısa yolu bulur.
-     * Engelleri (mobilyaları) aşamaz, sadece geçilebilir hücreler üzerinden ilerler.
+     * (baslangicX, baslangicY)'den (hedefX, hedefY)'ye en kısa yolu döndürür.
+     * Engelleri aşmaz; sadece geçilebilir hücreler üstünden gider.
      *
-     * @param oda         Üzerinde arama yapılacak oda nesnesi
-     * @param baslangicX  Başlangıç X koordinatı (sütun)
-     * @param baslangicY  Başlangıç Y koordinatı (satır)
-     * @param hedefX      Hedef X koordinatı (sütun)
-     * @param hedefY      Hedef Y koordinatı (satır)
-     * @return Başlangıç noktası hariç, hedefe kadar (hedef dahil) sıralı
-     *         [x, y] adımlarının listesi. Yol yoksa boş liste döner.
+     * @return Adım adım [x, y] noktalarının listesi. Başlangıç dahil değil,
+     *         hedef dahil. Yol bulunamazsa boş liste döner.
      */
-    public static List<int[]> yolBul(Oda oda, int baslangicX, int baslangicY, int hedefX, int hedefY) {
-        // Başlangıç ve hedef aynıysa boş liste döndür (hareket gerekmiyor)
-        if (baslangicX == hedefX && baslangicY == hedefY) return Collections.emptyList();
+    public static List<int[]> yolBul(Oda oda, int baslangicX, int baslangicY,
+                                     int hedefX, int hedefY) {
+        // 1) Zaten hedefteyiz: gidecek yol yok
+        if (baslangicX == hedefX && baslangicY == hedefY) {
+            return Collections.emptyList();
+        }
 
-        int sutunSayisi = oda.getSutunSayisi();
-        int satirSayisi = oda.getSatirSayisi();
+        int sutun = oda.getSutunSayisi();
+        int satir = oda.getSatirSayisi();
 
-        // Ziyaret edilen hücreleri ve her hücrenin parent (üst) hücresini takip eden diziler
-        boolean[][] ziyaretEdildi = new boolean[sutunSayisi][satirSayisi];
-        int[][] parentX = new int[sutunSayisi][satirSayisi];
-        int[][] parentY = new int[sutunSayisi][satirSayisi];
+        // 2) "Bu hücreye uğradım mı?" ve "buraya hangi hücreden geldim?" bilgilerini tut
+        boolean[][] ziyaretEdildi = new boolean[sutun][satir];
+        int[][] geldigiX = new int[sutun][satir];
+        int[][] geldigiY = new int[sutun][satir];
+        for (int[] satirDizisi : geldigiX) Arrays.fill(satirDizisi, -1);
+        for (int[] satirDizisi : geldigiY) Arrays.fill(satirDizisi, -1);
 
-        // Parent dizilerini -1 ile başlat (henüz ziyaret edilmedi anlamında)
-        for (int[] satir : parentX) Arrays.fill(satir, -1);
-        for (int[] satir : parentY) Arrays.fill(satir, -1);
-
-        // BFS için FIFO kuyruğu
+        // 3) BFS kuyruğu: hücreler keşfedildikçe buraya eklenir
         Queue<int[]> kuyruk = new LinkedList<>();
         kuyruk.add(new int[]{baslangicX, baslangicY});
         ziyaretEdildi[baslangicX][baslangicY] = true;
 
-        // 4 ana yön için dx, dy yer değiştirme vektörleri (kuzey, doğu, güney, batı)
+        // Komşu hücreler için 4 yön: kuzey, doğu, güney, batı
         int[] dx = {0, 1, 0, -1};
         int[] dy = {-1, 0, 1, 0};
 
-        boolean bulundu = false;
+        boolean hedefBulundu = false;
 
-        // BFS ana döngüsü: kuyruk boşalana veya hedef bulunana kadar devam et
+        // 4) Kuyruk boşalana kadar veya hedefi bulana kadar arama
         while (!kuyruk.isEmpty()) {
             int[] mevcut = kuyruk.poll();
-            int mevcutX = mevcut[0], mevcutY = mevcut[1];
+            int mx = mevcut[0];
+            int my = mevcut[1];
 
-            // Hedefe ulaştıysak aramayı sonlandır
-            if (mevcutX == hedefX && mevcutY == hedefY) {
-                bulundu = true;
+            // Hedefe geldik mi?
+            if (mx == hedefX && my == hedefY) {
+                hedefBulundu = true;
                 break;
             }
 
-            // 4 yöndeki komşu hücreleri kontrol et
+            // 5) 4 komşu hücreye bak
             for (int d = 0; d < 4; d++) {
-                int yeniX = mevcutX + dx[d];
-                int yeniY = mevcutY + dy[d];
+                int yeniX = mx + dx[d];
+                int yeniY = my + dy[d];
 
-                // Sınırlar dışındaki hücreleri atla
-                if (!oda.sinirlarIcindeMi(yeniX, yeniY)) continue;
-                // Zaten ziyaret edilmiş hücreleri atla
-                if (ziyaretEdildi[yeniX][yeniY]) continue;
-                // Engel ise atla (ancak hedef noktasına ulaşabiliriz - şarj istasyonu gibi)
-                if (!oda.gecilebilirMi(yeniX, yeniY) && !(yeniX == hedefX && yeniY == hedefY)) continue;
+                if (!oda.sinirlarIcindeMi(yeniX, yeniY)) continue;   // ızgara dışı
+                if (ziyaretEdildi[yeniX][yeniY]) continue;           // zaten gördük
+                // Engelse atla. (Tek istisna: hedef hücre zaten istasyon olabilir
+                // ve istasyona ulaşabilmemiz lazım.)
+                if (!oda.gecilebilirMi(yeniX, yeniY)
+                        && !(yeniX == hedefX && yeniY == hedefY)) continue;
 
-                // Hücreyi ziyaret edildi olarak işaretle ve parent bilgisini kaydet
+                // Komşuyu ziyaret edildi olarak işaretle, nereden geldiğini kaydet
                 ziyaretEdildi[yeniX][yeniY] = true;
-                parentX[yeniX][yeniY] = mevcutX;
-                parentY[yeniX][yeniY] = mevcutY;
+                geldigiX[yeniX][yeniY] = mx;
+                geldigiY[yeniX][yeniY] = my;
                 kuyruk.add(new int[]{yeniX, yeniY});
             }
         }
 
-        // Hedef bulunamadıysa boş yol döndür
-        if (!bulundu) return Collections.emptyList();
+        // 6) Hedefe ulaşamadıysak boş yol döndür
+        if (!hedefBulundu) return Collections.emptyList();
 
-        // Hedeften başlayarak parent zincirini takip et ve yolu geri inşa et
+        // 7) Hedeften geriye doğru "nereden geldim" zincirini takip et,
+        //    böylece yolu adım adım inşa ederiz
         List<int[]> yol = new ArrayList<>();
-        int gx = hedefX, gy = hedefY;
+        int gx = hedefX;
+        int gy = hedefY;
         while (!(gx == baslangicX && gy == baslangicY)) {
-            // Adımı listenin başına ekle (sırasıyla geriye doğru inşa ediyoruz)
-            yol.add(0, new int[]{gx, gy});
-            int px = parentX[gx][gy];
-            int py = parentY[gx][gy];
+            yol.add(0, new int[]{gx, gy});  // listenin başına ekle (sıra düzelsin)
+            int px = geldigiX[gx][gy];
+            int py = geldigiY[gx][gy];
             gx = px;
             gy = py;
         }

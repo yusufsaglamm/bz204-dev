@@ -8,64 +8,42 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 /**
- * BZ 214 Görsel Programlama
- * Robot Süpürge Temizlik Simülasyonu
+ * BZ 214 Görsel Programlama — Robot Süpürge Simülasyonu.
+ * Uygulamanın giriş noktası. JavaFX Application'dan türemiştir.
  *
- * <p>Uygulamanın ana giriş noktası. JavaFX {@link Application} sınıfından türetilir.</p>
- *
- * <p><b>MVC Mimarisi:</b></p>
- * <ul>
- *   <li>{@link SimulasyonModeli} - Model katmanı (durum ve mantık)</li>
- *   <li>{@link AnaGorunum} - View katmanı (UI bileşenleri)</li>
- *   <li>{@link SimulasyonKontrolcusu} - Controller katmanı (olay yönetimi)</li>
- * </ul>
+ * MVC: SimulasyonModeli = Model, AnaGorunum = View, SimulasyonKontrolcusu = Controller.
+ * Üçü bu sınıfta bağlanıyor.
  */
 public class AnaUygulama extends Application {
 
     /**
-     * JavaFX'in çağırdığı yaşam döngüsü metodu.
-     * Uygulamanın ana penceresini ve sahnesini oluşturur.
-     *
-     * <p><b>Not:</b> "start" adı JavaFX framework'ünün zorunlu kıldığı bir
-     * isim olduğu için <b>korunmuştur</b>.</p>
-     *
-     * @param primaryStage JavaFX tarafından sağlanan ana sahne (pencere)
+     * JavaFX uygulama açıldığında bu metodu otomatik çağırır.
+     * (start ismi framework zorunluluğu, dokunmadık.)
      */
     @Override
     public void start(Stage primaryStage) {
-        // MVC bileşenlerini oluştur
+        // Model -> View -> Controller sırasıyla kuruluyoruz, sonra birbirlerine tanıştırıyoruz.
         SimulasyonModeli model = new SimulasyonModeli();
         AnaGorunum gorunum = new AnaGorunum(model);
         SimulasyonKontrolcusu kontrolcu = new SimulasyonKontrolcusu(model, gorunum);
-
-        // Görünüme kontrolcüyü bağla (olayları yakalaması için)
         gorunum.setKontrolcu(kontrolcu);
 
-        // Sahneyi oluştur ve CSS stilini uygula
         Scene sahne = new Scene(gorunum.getKok(), 1280, 780);
         sahne.getStylesheets().add(
             getClass().getResource("/com/robotvacuum/style.css").toExternalForm()
         );
 
-        // Ana pencere ayarları
         primaryStage.setTitle("Robot Süpürge Simülasyonu");
         primaryStage.setScene(sahne);
         primaryStage.setMinWidth(1100);
         primaryStage.setMinHeight(700);
         primaryStage.show();
 
-        // Kontrolcüyü başlat (varsayılan mobilyalar, kirler ve animasyon zamanlayıcısı)
+        // Varsayılan mobilyalar, kirler ve animasyon timer'ı burada başlıyor.
         kontrolcu.initialize();
     }
 
-    /**
-     * JVM tarafından çağrılan uygulama giriş noktası.
-     *
-     * <p><b>Not:</b> "main" adı Java dili tarafından zorunlu kılınan bir
-     * isim olduğu için <b>korunmuştur</b>.</p>
-     *
-     * @param args Komut satırı argümanları (kullanılmıyor)
-     */
+    /** Java'nın aradığı standart giriş noktası — JavaFX'i başlatır. */
     public static void main(String[] args) {
         launch(args);
     }

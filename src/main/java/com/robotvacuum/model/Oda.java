@@ -4,59 +4,40 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Odayı 2 boyutlu bir hücre ızgarası olarak temsil eden sınıf.
- * Engelleri (mobilyaları), kirleri ve şarj istasyonunun konumunu yönetir.
- * Varsayılan olarak 20 sütun ve 14 satırdan oluşur.
+ * Odayı 2 boyutlu bir hücre ızgarası gibi tutar.
+ * Engelleri (mobilya), kirleri ve şarj istasyonunu burada yönetiyoruz.
+ *
+ * Not (OOP): Izgaraya doğrudan erişim yok. Engel/şarj/kir eklemek için
+ * sadece bu sınıftaki metotlar üzerinden gidiliyor. Örn. şarj istasyonu
+ * üzerine kazara engel konmasını sarjIstasyonuMu() kontrolüyle önlüyoruz.
  */
 public class Oda {
 
-    /** Varsayılan sütun sayısı */
     public static final int VARSAYILAN_SUTUN = 20;
-
-    /** Varsayılan satır sayısı */
     public static final int VARSAYILAN_SATIR = 14;
 
-    /** Odanın sütun (genişlik) sayısı */
     private final int sutunSayisi;
-
-    /** Odanın satır (yükseklik) sayısı */
     private final int satirSayisi;
+    private final Hucre[][] izgara;     // izgara[x][y]
 
-    /** Hücreleri tutan 2 boyutlu ızgara: izgara[x][y] */
-    private final Hucre[][] izgara;
-
-    /** Şarj istasyonunun X koordinatı */
     private int sarjIstasyonuX;
-
-    /** Şarj istasyonunun Y koordinatı */
     private int sarjIstasyonuY;
 
-    /**
-     * Belirtilen boyutlarda yeni bir oda oluşturur.
-     * Şarj istasyonu varsayılan olarak sol üst köşeye (0, 0) yerleştirilir.
-     *
-     * @param sutunSayisi Sütun (genişlik) sayısı
-     * @param satirSayisi Satır (yükseklik) sayısı
-     */
     public Oda(int sutunSayisi, int satirSayisi) {
         this.sutunSayisi = sutunSayisi;
         this.satirSayisi = satirSayisi;
         this.izgara = new Hucre[sutunSayisi][satirSayisi];
         izgaraOlustur();
-        // Varsayılan şarj istasyonu sol üst köşede konumlandırılır
+        // Varsayılan şarj istasyonu sol üst köşede dursun
         sarjIstasyonuAyarla(0, 0);
     }
 
-    /**
-     * Varsayılan boyutlarda (20x14) yeni bir oda oluşturur.
-     */
+    /** Varsayılan boyutlu oda (20 x 14). */
     public Oda() {
         this(VARSAYILAN_SUTUN, VARSAYILAN_SATIR);
     }
 
-    /**
-     * Tüm ızgara hücrelerini varsayılan zemin durumunda başlatır.
-     */
+    /** Bütün hücreleri boş zemin olarak başlat. */
     private void izgaraOlustur() {
         for (int x = 0; x < sutunSayisi; x++) {
             for (int y = 0; y < satirSayisi; y++) {
@@ -65,63 +46,31 @@ public class Oda {
         }
     }
 
-    /**
-     * Belirtilen koordinattaki hücreyi döndürür.
-     *
-     * @param x Sütun indeksi
-     * @param y Satır indeksi
-     * @return İlgili hücre veya sınır dışıysa null
-     */
+    /** Sınır dışıysa null döner. */
     public Hucre getHucre(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return null;
         return izgara[x][y];
     }
 
-    /**
-     * Verilen koordinatların ızgara sınırları içinde olup olmadığını kontrol eder.
-     *
-     * @param x Kontrol edilecek X koordinatı
-     * @param y Kontrol edilecek Y koordinatı
-     * @return Koordinatlar geçerliyse true
-     */
     public boolean sinirlarIcindeMi(int x, int y) {
         return x >= 0 && x < sutunSayisi && y >= 0 && y < satirSayisi;
     }
 
-    /**
-     * Verilen koordinatın geçilebilir olup olmadığını kontrol eder.
-     * Engel hücreleri geçilemez; sınır dışı koordinatlar da geçilemez.
-     *
-     * @param x Kontrol edilecek X koordinatı
-     * @param y Kontrol edilecek Y koordinatı
-     * @return Hücre geçilebilirse true
-     */
+    /** Hücre engel değilse ve ızgaradaysa geçilebilir. */
     public boolean gecilebilirMi(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return false;
         return !izgara[x][y].engelMi();
     }
 
-    /**
-     * Belirtilen koordinata bir engel (mobilya) yerleştirir.
-     * Şarj istasyonu üzerine engel konulamaz.
-     *
-     * @param x Sütun indeksi
-     * @param y Satır indeksi
-     */
+    /** Verilen koordinata mobilya (engel) koy. Şarj istasyonu üzerine konamaz. */
     public void engelKoy(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return;
-        // Şarj istasyonu üzerine engel konulamaz
         if (izgara[x][y].sarjIstasyonuMu()) return;
         izgara[x][y].setTip(Hucre.HucreTipi.ENGEL);
         izgara[x][y].kiriTemizle();
     }
 
-    /**
-     * Belirtilen koordinattaki engeli kaldırır ve hücreyi zemin yapar.
-     *
-     * @param x Sütun indeksi
-     * @param y Satır indeksi
-     */
+    /** Engeli kaldır, hücre tekrar zemin olsun. */
     public void engelKaldir(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return;
         if (izgara[x][y].engelMi()) {
@@ -130,15 +79,12 @@ public class Oda {
     }
 
     /**
-     * Şarj istasyonunu belirtilen koordinata taşır.
-     * Eski şarj istasyonu zemin hücresine dönüştürülür.
-     *
-     * @param x Yeni sütun indeksi
-     * @param y Yeni satır indeksi
+     * Şarj istasyonunu yeni bir koordinata taşır.
+     * Eski yerdeki istasyonu önce zemine çeviriyoruz ki ızgarada
+     * birden fazla istasyon olmasın.
      */
     public void sarjIstasyonuAyarla(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return;
-        // Eski şarj istasyonunu temizle
         if (sinirlarIcindeMi(sarjIstasyonuX, sarjIstasyonuY)) {
             Hucre eski = izgara[sarjIstasyonuX][sarjIstasyonuY];
             if (eski.sarjIstasyonuMu()) {
@@ -151,24 +97,17 @@ public class Oda {
         izgara[x][y].kiriTemizle();
     }
 
-    /**
-     * Belirtilen koordinata kir ekler.
-     * Engel veya şarj istasyonu hücrelerine kir eklenemez.
-     *
-     * @param x   Sütun indeksi
-     * @param y   Satır indeksi
-     * @param tip Eklenecek kir türü
-     */
-    public void kirEkle(int x, int y, KirTipi tip) {
+    /** Zemin hücrelerine kir koyar. Engel veya istasyon üstüne kir bırakmaz. */
+    public void kirEkle(int x, int y, KirTuru tur) {
         if (!sinirlarIcindeMi(x, y)) return;
         Hucre h = izgara[x][y];
         if (h.engelMi() || h.sarjIstasyonuMu()) return;
-        h.setKir(tip);
+        h.setKir(tur);
     }
 
     /**
-     * Odanın temizlik durumunu sıfırlar.
-     * Engeller ve şarj istasyonu korunur; sadece kirler ve temizlenme bayrakları sıfırlanır.
+     * Yalnızca kir ve "temizlendi" işaretlerini sıfırlar.
+     * Mobilyalar ve şarj istasyonu olduğu yerde kalır.
      */
     public void sifirla() {
         for (int x = 0; x < sutunSayisi; x++) {
@@ -182,76 +121,57 @@ public class Oda {
         }
     }
 
-    /**
-     * Odayı tamamen sıfırlar: tüm hücreler yeniden oluşturulur ve
-     * şarj istasyonu varsayılan konumuna geri taşınır.
-     */
+    /** Tamamen sıfırdan başla: tüm hücreleri yeniden oluştur. */
     public void tamSifirla() {
         izgaraOlustur();
         sarjIstasyonuAyarla(0, 0);
     }
 
-    /** @return Odanın sütun sayısı (genişlik) */
     public int getSutunSayisi() { return sutunSayisi; }
-
-    /** @return Odanın satır sayısı (yükseklik) */
     public int getSatirSayisi() { return satirSayisi; }
-
-    /** @return Şarj istasyonunun X koordinatı */
     public int getSarjIstasyonuX() { return sarjIstasyonuX; }
-
-    /** @return Şarj istasyonunun Y koordinatı */
     public int getSarjIstasyonuY() { return sarjIstasyonuY; }
 
-    /**
-     * Toplam geçilebilir (engel olmayan) hücre sayısını döndürür.
-     *
-     * @return Engel olmayan hücre sayısı
-     */
+    /** Geçilebilir (engel olmayan) toplam hücre sayısı. */
     public int getToplamZeminHucresi() {
         int sayac = 0;
-        for (int x = 0; x < sutunSayisi; x++)
-            for (int y = 0; y < satirSayisi; y++)
+        for (int x = 0; x < sutunSayisi; x++) {
+            for (int y = 0; y < satirSayisi; y++) {
                 if (!izgara[x][y].engelMi()) sayac++;
+            }
+        }
         return sayac;
     }
 
-    /**
-     * En az bir kere temizlenmiş hücre sayısını döndürür.
-     *
-     * @return Temizlenen hücre sayısı
-     */
+    /** En az bir kere temizlenmiş hücre sayısı (kapsam göstergesi). */
     public int getTemizlenenHucreSayisi() {
         int sayac = 0;
-        for (int x = 0; x < sutunSayisi; x++)
-            for (int y = 0; y < satirSayisi; y++)
+        for (int x = 0; x < sutunSayisi; x++) {
+            for (int y = 0; y < satirSayisi; y++) {
                 if (izgara[x][y].temizMi()) sayac++;
+            }
+        }
         return sayac;
     }
 
-    /**
-     * Hâlâ kir bulunan hücre sayısını döndürür.
-     *
-     * @return Kirli hücre sayısı
-     */
+    /** Hâlâ kir olan hücre sayısı. */
     public int getKirliHucreSayisi() {
         int sayac = 0;
-        for (int x = 0; x < sutunSayisi; x++)
-            for (int y = 0; y < satirSayisi; y++)
+        for (int x = 0; x < sutunSayisi; x++) {
+            for (int y = 0; y < satirSayisi; y++) {
                 if (izgara[x][y].kirVarMi()) sayac++;
+            }
+        }
         return sayac;
     }
 
-    /**
-     * Kirli olan tüm hücrelerin listesini döndürür.
-     *
-     * @return Kirli hücrelerin listesi
-     */
     public List<Hucre> getKirliHucreler() {
         List<Hucre> kirliler = new ArrayList<>();
-        for (int x = 0; x < sutunSayisi; x++)
-            for (int y = 0; y < satirSayisi; y++)
+        for (int x = 0; x < sutunSayisi; x++) {
+            for (int y = 0; y < satirSayisi; y++) {
                 if (izgara[x][y].kirVarMi()) kirliler.add(izgara[x][y]);
+            }
+        }
         return kirliler;
     }
 }
