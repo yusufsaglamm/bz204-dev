@@ -12,6 +12,11 @@ public class SesYoneticisi {
 
     private static boolean sesAktif = true;
 
+    // Aynı anda üst üste yüzlerce ses çalıp ses kartını çökertmemek için kilit (bayrak) değişkenlerimiz.
+    // 'volatile' kelimesi, bu değişkenlerin farklı Thread'ler arasında anında güncellenmesini sağlar.
+    private static volatile boolean carpmaSesiCalisiyor = false;
+    private static volatile boolean temizlikSesiCalisiyor = false;
+
     public static void setSesAktif(boolean aktif) {
         sesAktif = aktif;
     }
@@ -21,7 +26,11 @@ public class SesYoneticisi {
      * Frekansı yüksekten alçağa doğru hızlıca düşürerek çarpma hissi yaratıyoruz.
      */
     public static void playBumpSound() {
-        if (!sesAktif) return;
+        // Eğer ses kapalıysa VEYA zaten o an bir çarpma sesi çalıyorsa yenisini başlatma (Çökme koruması)
+        if (!sesAktif || carpmaSesiCalisiyor) return;
+
+        carpmaSesiCalisiyor = true; // Ses başladı, kilidi kapat
+
         new Thread(() -> {
             try {
                 AudioFormat af = new AudioFormat(8000f, 8, 1, true, false);
@@ -41,6 +50,9 @@ public class SesYoneticisi {
                 sdl.close();
             } catch (Exception e) {
                 // Hata verirse sessizce geç, simülasyonu bozma
+            } finally {
+                // Ses başarıyla bitse de, hata verse de mutlaka kilidi geri aç ki sonraki sesler çalabilsin
+                carpmaSesiCalisiyor = false;
             }
         }).start();
     }
@@ -49,13 +61,40 @@ public class SesYoneticisi {
      * Robot süpürge kirli bir hücreyi temizlerken çıkacak "bızzt" sesi.
      */
     public static void playCleanSound() {
-        if (!sesAktif) return;
-        sesCal(2000, 50); // 2000 Hz frekansta 50 milisaniye çal
+        // Eğer ses kapalıysa VEYA zaten o an bir temizlik sesi çalıyorsa yenisini başlatma
+        if (!sesAktif || temizlikSesiCalisiyor) return;
+
+        temizlikSesiCalisiyor = true; // Ses başladı, kilidi kapat
+
+        new Thread(() -> {
+            try {
+                double hz = 2000;
+                int milisaniye = 50;
+                byte[] buf = new byte[1];
+                AudioFormat af = new AudioFormat(8000f, 8, 1, true, false);
+                SourceDataLine sdl = AudioSystem.getSourceDataLine(af);
+                sdl.open(af);
+                sdl.start();
+                for (int i = 0; i < milisaniye * 8; i++) {
+                    double angle = i / (8000f / hz) * 2.0 * Math.PI;
+                    buf[0] = (byte) (Math.sin(angle) * 100.0);
+                    sdl.write(buf, 0, 1);
+                }
+                sdl.drain();
+                sdl.stop();
+                sdl.close();
+            } catch (Exception e) {
+                // Sessizce yut
+            } finally {
+                // İşlem bitince kilidi aç
+                temizlikSesiCalisiyor = false;
+            }
+        }).start();
     }
 
     /**
      * Robot şarj istasyonuna başarıyla oturduğunda çalacak "dındırınn" efekti.
-     * Frekansı alçaktan yükseğe doğru süpürerek (sweep) pozitif bir bildirim sesi veririz.
+     * Şarj sesi çok nadir (sadece istasyona dönünce 1 kere) çaldığı için kilit koymaya gerek yoktur.
      */
     public static void playChargeSound() {
         if (!sesAktif) return;
@@ -77,31 +116,6 @@ public class SesYoneticisi {
                 sdl.close();
             } catch (Exception e) {
                 // Hata durumunda simülasyonu etkilemesin
-            }
-        }).start();
-    }
-
-    /**
-     * Belirli frekanstaki ve milisaniyedeki sinüs ses dalgasını çalar.
-     */
-    private static void sesCal(double hz, int milisaniye) {
-        new Thread(() -> {
-            try {
-                byte[] buf = new byte[1];
-                AudioFormat af = new AudioFormat(8000f, 8, 1, true, false);
-                SourceDataLine sdl = AudioSystem.getSourceDataLine(af);
-                sdl.open(af);
-                sdl.start();
-                for (int i = 0; i < milisaniye * 8; i++) {
-                    double angle = i / (8000f / hz) * 2.0 * Math.PI;
-                    buf[0] = (byte) (Math.sin(angle) * 100.0);
-                    sdl.write(buf, 0, 1);
-                }
-                sdl.drain();
-                sdl.stop();
-                sdl.close();
-            } catch (Exception e) {
-                // Sessizce yut
             }
         }).start();
     }

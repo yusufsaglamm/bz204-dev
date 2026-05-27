@@ -56,7 +56,6 @@ public class SimulasyonModeli {
 
     private double toplamToplananToz = 0;
     private int toplamHareket = 0;
-    private int baslangicKirliHucreSayisi = 0;
 
     public SimulasyonModeli() {
         oda = new Oda();
@@ -69,7 +68,6 @@ public class SimulasyonModeli {
             calisiyor = true;
             duraklatildi = false;
             simulasyonBaslangicZamani = System.currentTimeMillis();
-            baslangicKirliHucreSayisi = oda.getKirliAlanSayisi();
             durumOzelligi.set("Çalışıyor");
         } else if (duraklatildi) {
             duraklatildi = false;
@@ -485,6 +483,7 @@ public class SimulasyonModeli {
     public IntegerProperty ulasilamayanAlanOzelligi() { return ulasilamayanAlanOzelligi; }
 
     public int getToplamBaslangicKiri() {
-        return Math.max(1, baslangicKirliHucreSayisi > 0 ? baslangicKirliHucreSayisi : oda.getKirliAlanSayisi() + (int) toplamToplananToz);
+        // Toplam kir = Odada anlık olarak kalan kirler + Şu ana kadar robotun temizledikleri
+        return Math.max(1, oda.getKirliAlanSayisi() + (int) toplamToplananToz);
     }
 }

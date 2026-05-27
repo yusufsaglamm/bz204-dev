@@ -1,6 +1,6 @@
 package com.robotvacuum.model;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -33,7 +33,7 @@ public class Robot {
         this.sarjOluyor = false;
         this.istasyonaDonuyor = false;
         this.temizlikAdimSayisi = 0;
-        this.yolGecmisi = new ArrayList<>();
+        this.yolGecmisi = new LinkedList<>();
         yolGecmisi.add(new int[]{baslangicX, baslangicY});
     }
 

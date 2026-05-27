@@ -113,15 +113,31 @@ public class SimulasyonKontroloru {
     /**
      * Oda planı ComboBox'ından seçim değişince yeni odayı ve engellerini yerleştirir.
      */
+    /**
+     * Oda planı ComboBox'ından seçim değişince yeni odayı ve engellerini yerleştirir.
+     * Metin tabanlı (String) kontrol yerine enum nesneleri üzerinden güvenli eşleşme yapar.
+     */
     public void odaPlaniDegistir(String planAdi) {
         model.sifirla();
-        if ("Salon".equals(planAdi)) {
-            salonOlustur();
-        } else if ("Mutfak".equals(planAdi)) {
-            mutfakOlustur();
-        } else if ("Yatak Odası".equals(planAdi)) {
-            yatakOdasiOlustur();
+
+        // Ekranda seçilen String isme karşılık gelen OdaTipi nesnesini buluyoruz
+        OdaTipi secilenTip = null;
+        for (OdaTipi tip : OdaTipi.values()) {
+            if (tip.getEkranAdi().equals(planAdi)) {
+                secilenTip = tip;
+                break;
+            }
         }
+
+        // Bulunan enum nesnesine göre ilgili odayı inşa eden metodu çağırıyoruz
+        if (secilenTip != null) {
+            switch (secilenTip) {
+                case SALON -> salonOlustur();
+                case MUTFAK -> mutfakOlustur();
+                case YATAK_ODASI -> yatakOdasiOlustur();
+            }
+        }
+
         gorunum.getOdaKanvasi().yenidenCiz();
     }
 

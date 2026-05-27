@@ -134,12 +134,18 @@ public class AnaGorunum {
         VBox kutu = new VBox(5);
         Label baslik = new Label("🏠 Odalar");
         baslik.getStyleClass().add("section-header-small");
-        
+
         odaSecimKutusu = new ComboBox<>();
-        odaSecimKutusu.getItems().addAll("Salon", "Mutfak", "Yatak Odası");
+
+        // ESKİ HALİ: odaSecimKutusu.getItems().addAll("Salon", "Mutfak", "Yatak Odası");
+        // YENİ HALİ: Arayüz metinlerini doğrudan oluşturduğumuz OdaTipi enum'ından çekiyoruz
+        for (OdaTipi tip : OdaTipi.values()) {
+            odaSecimKutusu.getItems().add(tip.getEkranAdi());
+        }
+
         odaSecimKutusu.getSelectionModel().selectFirst();
         odaSecimKutusu.setMaxWidth(Double.MAX_VALUE);
-        
+
         kutu.getChildren().addAll(baslik, odaSecimKutusu);
         return kutu;
     }
@@ -152,21 +158,23 @@ public class AnaGorunum {
 
     private VBox kirSecimBolumunuKur() {
         VBox kutu = new VBox(6);
-        btnKirEkle = new Button("💩 Kir Ekle");
+        btnKirEkle = new Button("Kir Ekle");
         btnKirEkle.getStyleClass().add("btn-action");
         btnKirEkle.setMaxWidth(Double.MAX_VALUE);
-        
+
         kirGrubu = new ToggleGroup();
-        rbToz = new RadioButton("💨 Toz");
-        rbSivi = new RadioButton("💧 Sıvı");
-        rbLeke = new RadioButton("🌀 Leke");
-        
+
+        // YENİ HALİ: İsimleri doğrudan senin KirTipi enum'ından çekiyoruz
+        rbToz = new RadioButton("💨 " + KirTipi.TOZ.getEkranAdi());
+        rbSivi = new RadioButton("💧 " + KirTipi.SIVI.getEkranAdi());
+        rbLeke = new RadioButton("🌀 " + KirTipi.LEKE.getEkranAdi());
+
         for (RadioButton rb : new RadioButton[]{rbToz, rbSivi, rbLeke}) {
             rb.setToggleGroup(kirGrubu);
             rb.getStyleClass().add("rb-small");
         }
         rbToz.setSelected(true);
-        
+
         kutu.getChildren().addAll(btnKirEkle, rbToz, rbSivi, rbLeke);
         return kutu;
     }
@@ -200,18 +208,20 @@ public class AnaGorunum {
         VBox kutu = new VBox(5);
         Label baslik = new Label("⚙️ Temizlik Algoritması");
         baslik.getStyleClass().add("section-header-small");
-        
+
         algoritmaGrubu = new ToggleGroup();
-        rbRastgele = new RadioButton("Rastgele");
-        rbSpiral = new RadioButton("Spiral");
-        rbDuvarTakip = new RadioButton("Duvar Takip");
-        
+
+        // YENİ HALİ: İsimleri doğrudan TemizlikAlgoritmasi enum'ından çekiyoruz
+        rbRastgele = new RadioButton(TemizlikAlgoritmasi.RASTGELE.getEkranAdi());
+        rbSpiral = new RadioButton(TemizlikAlgoritmasi.SPIRAL.getEkranAdi());
+        rbDuvarTakip = new RadioButton(TemizlikAlgoritmasi.DUVAR_TAKIP.getEkranAdi());
+
         for (RadioButton rb : new RadioButton[]{rbRastgele, rbSpiral, rbDuvarTakip}) {
             rb.setToggleGroup(algoritmaGrubu);
             rb.getStyleClass().add("rb-small");
         }
         rbSpiral.setSelected(true);
-        
+
         kutu.getChildren().addAll(baslik, rbRastgele, rbSpiral, rbDuvarTakip);
         return kutu;
     }
