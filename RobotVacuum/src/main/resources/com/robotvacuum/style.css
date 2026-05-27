@@ -1,0 +1,226 @@
+/* ============================================================
+   Robot Vacuum Simulation - Main Stylesheet
+   ============================================================ */
+
+.root-pane {
+    -fx-background-color: #1a1b2e;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 13px;
+}
+
+.title-bar {
+    -fx-background-color: linear-gradient(to right, #1a1b2e, #16213e);
+    -fx-border-color: transparent transparent #2d3561 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.title-label {
+    -fx-text-fill: #e0e8ff;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+.status-badge {
+    -fx-background-color: #2d3561;
+    -fx-text-fill: #80c8ff;
+    -fx-padding: 4 12 4 12;
+    -fx-background-radius: 12;
+    -fx-font-size: 11px;
+}
+
+.left-panel {
+    -fx-background-color: #16213e;
+    -fx-border-color: transparent #2d3561 transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.section-header {
+    -fx-text-fill: #9ab0d8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 0 2 0;
+}
+
+.section-header-small {
+    -fx-text-fill: #7890b8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 0 1 0;
+}
+
+.label-small {
+    -fx-text-fill: #8090a8;
+    -fx-font-size: 11px;
+}
+
+.label-value {
+    -fx-text-fill: #c8deff;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.label-hint {
+    -fx-text-fill: #506080;
+    -fx-font-size: 10px;
+}
+
+.rb-small {
+    -fx-text-fill: #a0b8d8;
+    -fx-font-size: 12px;
+}
+
+.rb-small .radio {
+    -fx-background-color: #2d3561;
+    -fx-border-color: #4d5f8a;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+}
+
+.rb-small:selected .radio {
+    -fx-background-color: #4080c0;
+    -fx-border-color: #60a0e0;
+}
+
+.btn-action {
+    -fx-background-color: #2d3f70;
+    -fx-text-fill: #d0e8ff;
+    -fx-padding: 7 10 7 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-action:hover {
+    -fx-background-color: #3d5090;
+}
+
+.btn-action-secondary {
+    -fx-background-color: #2a3a50;
+    -fx-text-fill: #b0c8e8;
+    -fx-padding: 7 10 7 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-action-secondary:hover {
+    -fx-background-color: #3a4a68;
+}
+
+.btn-start {
+    -fx-background-color: #1f6a40;
+    -fx-text-fill: #b0ffd0;
+    -fx-padding: 8 10 8 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+}
+
+.btn-start:hover { -fx-background-color: #2a8a56; }
+
+.btn-pause {
+    -fx-background-color: #6a5a1f;
+    -fx-text-fill: #ffe0a0;
+    -fx-padding: 8 10 8 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-pause:hover { -fx-background-color: #8a7a2a; }
+
+.btn-reset {
+    -fx-background-color: #5a1f1f;
+    -fx-text-fill: #ffc0c0;
+    -fx-padding: 7 10 7 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-reset:hover { -fx-background-color: #7a2a2a; }
+
+.btn-station {
+    -fx-background-color: #2d4070;
+    -fx-text-fill: #c0d8ff;
+    -fx-padding: 7 10 7 10;
+    -fx-background-radius: 6;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+.btn-station:hover { -fx-background-color: #3d5a9a; }
+
+.speed-slider .track {
+    -fx-background-color: #2d3561;
+    -fx-border-color: #3d4880;
+}
+
+.speed-slider .thumb {
+    -fx-background-color: #4080c0;
+    -fx-background-radius: 10;
+}
+
+.battery-bar {
+    -fx-background-color: #1a2540;
+    -fx-border-color: #3d5080;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-accent: #3cb96a;
+    -fx-pref-height: 10;
+}
+
+.battery-bar .bar {
+    -fx-background-radius: 4;
+}
+
+.canvas-scroll {
+    -fx-background-color: #0f1223;
+    -fx-background: #0f1223;
+}
+
+.canvas-scroll .viewport {
+    -fx-background-color: #0f1223;
+}
+
+.left-panel .grid-pane Label {
+    -fx-text-fill: #8090a8;
+    -fx-font-size: 11px;
+}
+
+.scroll-bar:horizontal .track,
+.scroll-bar:vertical .track {
+    -fx-background-color: #1a1b2e;
+}
+
+.scroll-bar:horizontal .thumb,
+.scroll-bar:vertical .thumb {
+    -fx-background-color: #2d3561;
+    -fx-background-radius: 4;
+}
+
+/* ---- YENİ: Alt Durum Çubuğu (Görseldeki Tasarım) ---- */
+.status-outer-container {
+    -fx-background-color: #101628;
+}
+
+.status-inner-box {
+    -fx-background-color: #1a2238;
+    -fx-border-color: #2b3655;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 5 10 5 10;
+}
+
+.stat-name {
+    -fx-text-fill: #a0aabf;
+    -fx-font-size: 11px;
+}
+
+.stat-value {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}

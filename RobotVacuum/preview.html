@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Robot Süpürge Simülasyonu - Önizleme</title>
+<style>
+:root {
+  --bg: #1a1b2e;
+  --bg2: #16213e;
+  --bg3: #0d1026;
+  --panel: #12192e;
+  --border: #2d3561;
+  --text: #d0dcff;
+  --text2: #8090b8;
+  --accent: #4080c0;
+  --accent2: #60a0e0;
+  --green: #3cb96a;
+  --yellow: #e8a020;
+  --red: #d94040;
+  --charging: #ffc832;
+  --obstacle: #4a4a58;
+  --dust: #b89664;
+  --liquid: #3a8cdc;
+  --stain: #a03c3c;
+  --cleaned: rgba(80,160,255,0.18);
+  --floor1: #eeeee8;
+  --floor2: #e4e4dc;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+/* TITLE BAR */
+.titlebar {
+  background: linear-gradient(to right, #1a1b2e, #16213e);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.titlebar h1 { font-size: 18px; font-weight: 600; color: #e0eaff; }
+.status-badge {
+  margin-left: auto;
+  background: var(--border);
+  color: var(--accent2);
+  padding: 3px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  transition: all 0.3s;
+}
+.status-badge.running { background: rgba(60,185,106,0.2); color: #60d890; border: 1px solid rgba(60,185,106,0.4); }
+.status-badge.charging { background: rgba(255,200,50,0.2); color: #ffd860; border: 1px solid rgba(255,200,50,0.4); }
+.status-badge.low { background: rgba(217,64,64,0.2); color: #ff8080; border: 1px solid rgba(217,64,64,0.4); }
+
+/* MAIN LAYOUT */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* LEFT PANEL */
+.left-panel {
+  width: 196px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  padding: 4px 0 2px;
+  border-bottom: 1px solid var(--border);
+}
+.btn {
+  width: 100%;
+  background: #2d3f70;
+  color: #d0e8ff;
+  border: none;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover { background: #3d5090; }
+.btn.active { background: var(--accent); color: white; }
+.btn.green { background: #1f6a40; color: #b0ffd0; }
+.btn.green:hover { background: #2a8a56; }
+.btn.yellow { background: #6a5a1f; color: #ffe0a0; }
+.btn.yellow:hover { background: #8a7a2a; }
+.btn.red { background: #5a1f1f; color: #ffc0c0; }
+.btn.red:hover { background: #7a2a2a; }
+.btn.blue { background: #1f3a6a; color: #a0c8ff; }
+.btn.blue:hover { background: #2a4a8a; }
+.btn-row { display: flex; gap: 5px; }
+.btn-row .btn { font-size: 11px; padding: 6px 6px; }
+
+.radio-group { display: flex; flex-direction: column; gap: 4px; }
+.radio-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a0b8d8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.radio-opt input[type=radio] { accent-color: var(--accent); }
+.radio-opt.selected { color: var(--accent2); }
+
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; }
+.stat-label { color: var(--text2); font-size: 11px; }
+.stat-val { color: #c0dcff; font-size: 12px; font-weight: 600; }
+
+.battery-bar-wrap { background: #1a2540; border-radius: 4px; height: 8px; border: 1px solid #3d5080; overflow: hidden; margin-top: 2px; }
+.battery-bar-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s, background 0.3s; }
+
+.speed-control { display: flex; align-items: center; gap: 6px; }
+.speed-control input[type=range] { flex: 1; accent-color: var(--accent); }
+.speed-val { font-size: 11px; color: var(--accent2); min-width: 28px; text-align: right; }
+
+/* FURNITURE PICKER MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #1a2240;
+  border: 1px solid #3d5080;
+  border-radius: 10px;
+  padding: 16px;
+  width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.modal-title {
+  font-size: 14px; font-weight: 700; color: #d0e8ff;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.furniture-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 8px; margin-bottom: 14px;
+}
+.furniture-card {
+  background: #12192e; border: 1px solid #2d3561; border-radius: 8px;
+  padding: 10px 6px 8px; cursor: pointer; text-align: center;
+  transition: border-color 0.15s, background 0.15s; user-select: none;
+}
+.furniture-card:hover { border-color: var(--accent); background: #1e2d50; }
+.furniture-card.selected { border-color: var(--accent); background: #1e3060; box-shadow: 0 0 0 2px rgba(64,128,192,0.4); }
+.furniture-card .ficon { font-size: 22px; display: block; margin-bottom: 4px; }
+.furniture-card .fname { font-size: 10px; color: #8090b8; }
+.furniture-card .fsize { font-size: 9px; color: #506080; margin-top: 1px; }
+.modal-note { font-size: 10px; color: #506080; margin-bottom: 12px; line-height: 1.4; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-btns button { padding: 6px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+.btn-modal-ok { background: var(--accent); color: white; }
+.btn-modal-ok:hover { background: #5090d0; }
+.btn-modal-cancel { background: #2d3561; color: #a0b8d8; }
+.btn-modal-cancel:hover { background: #3d4580; }
+
+/* CENTER CANVAS */
+.canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  background: #0d1020;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 10px;
+}
+canvas#roomCanvas {
+  display: block;
+  cursor: crosshair;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+/* BOTTOM BAR */
+.status-bar {
+  background: #0a0c1a;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+}
+.stat-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-right: 1px solid rgba(45,53,97,0.5);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.stat-cell-text { display: flex; flex-direction: column; }
+.stat-cell-name { font-size: 9px; color: #506080; text-transform: uppercase; letter-spacing: 0.4px; }
+.stat-cell-value { font-size: 13px; font-weight: 600; color: #c0dcff; }
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <span style="font-size:20px">🤖</span>
+  <h1>Robot Süpürge Simülasyonu</h1>
+  <div class="status-badge" id="statusBadge">Hazır</div>
+</div>
+
+<div class="main">
+  <div class="left-panel">
+
+    <div class="section-title">🔧 Araçlar</div>
+    <button class="btn" id="btnAddDirt" onclick="toggleMode('dirt')">💩 Kir Ekle</button>
+    <div class="radio-group" id="dirtTypeGroup">
+      <label class="radio-opt selected"><input type="radio" name="dirtType" value="dust" checked> 💨 Toz</label>
+      <label class="radio-opt"><input type="radio" name="dirtType" value="liquid"> 💧 Sıvı</label>
+      <label class="radio-opt"><input type="radio" name="dirtType" value="stain"> 🌀 Leke</label>
+    </div>
+    <button class="btn" id="btnAddObstacle" onclick="openFurniturePicker()">🪑 Mobilya Seç &amp; Ekle</button>
+    <button class="btn" id="btnFreeObstacle" onclick="toggleMode('obstacle')" style="font-size:11px;padding:5px 10px;color:#8090b8">✏️ Serbest Çiz / Sil</button>
+
+    <div class="section-title">🚀 Robot Hızı</div>
+    <div class="speed-control">
+      <input type="range" min="0.5" max="3" step="0.5" value="1" id="speedSlider" oninput="setSpeed(this.value)">
+      <span class="speed-val" id="speedVal">1.0x</span>
+    </div>
+
+    <div class="section-title">⚙️ Algoritma</div>
+    <div class="radio-group" id="algoGroup">
+      <label class="radio-opt"><input type="radio" name="algo" value="random"> Rastgele</label>
+      <label class="radio-opt selected"><input type="radio" name="algo" value="spiral" checked> Spiral</label>
+      <label class="radio-opt"><input type="radio" name="algo" value="wall"> Duvar Takip</label>
+    </div>
+
+    <div class="section-title">🤖 Robot Durumu</div>
+    <div class="stat-row"><span class="stat-label">Konum (x,y)</span><span class="stat-val" id="posLabel">(0, 0)</span></div>
+    <div class="stat-row"><span class="stat-label">Yön</span><span class="stat-val" id="dirLabel">→ Doğu</span></div>
+    <div class="stat-row"><span class="stat-label">Batarya</span><span class="stat-val" id="battLabel">100%</span></div>
+    <div class="battery-bar-wrap"><div class="battery-bar-fill" id="battBar" style="width:100%"></div></div>
+
+    <div class="section-title">🔋 Batarya Ayarla</div>
+    <div class="speed-control">
+      <input type="range" min="0" max="100" value="100" id="batterySlider" oninput="manualBattery(this.value)">
+      <span class="speed-val" id="battSliderVal">100%</span>
+    </div>
+
+    <div class="section-title">🎮 Kontroller</div>
+    <div class="btn-row">
+      <button class="btn green" onclick="startSim()">▶ Başlat</button>
+      <button class="btn yellow" onclick="pauseSim()">⏸ Duraklat</button>
+    </div>
+    <button class="btn red" onclick="resetSim()">⬛ Sıfırla</button>
+    <button class="btn blue" onclick="returnToStation()">🏠 İstasyona Dön</button>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="roomCanvas"></canvas>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="stat-cell"><div class="stat-dot" style="background:#5082c8"></div><div class="stat-cell-text"><div class="stat-cell-name">Toplam Alan</div><div class="stat-cell-value" id="statTotal">0 m²</div></div></div>
+  <div class="stat-cell"><div class="stat-dot" style="background:#3cb96a"></div><div class="stat-cell-text"><div class="stat-cell-name">Temizlenen</div><div class="stat-cell-value" id="statCleaned">0 m² (0%)</div></div></div>
+  <div class="stat-cell"><div class="stat-dot" style="background:#c86440"></div><div class="stat-cell-text"><div class="stat-cell-name">Kalan Alan</div><div class="stat-cell-value" id="statRemain">0 m² (0%)</div></div></div>
+  <div class="stat-cell"><span style="font-size:14px">🕐</span><div class="stat-cell-text"><div class="stat-cell-name">Geçen Süre</div><div class="stat-cell-value" id="statTime">00:00</div></div></div>
+  <div class="stat-cell"><span style="font-size:14px">🧹</span><div class="stat-cell-text"><div class="stat-cell-name">Toplanan Toz</div><div class="stat-cell-value" id="statDust">0%</div></div></div>
+</div>
+
+<script>
+const COLS = 20, ROWS = 14, CS = 40;
+const canvas = document.getElementById('roomCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = COLS * CS;
+canvas.height = ROWS * CS;
+
+// ---------- STATE ----------
+const grid = Array.from({length: COLS}, (_,x) => Array.from({length: ROWS}, (_,y) => ({
+  type: 'floor', dirt: null, cleanSteps: 0, cleaned: false
+})));
+let robot = { x: 0, y: 0, dir: 'E', battery: 100, charging: false, returning: false };
+let pathHistory = [{x:0,y:0}];
+let plannedPath = [];
+let sim = { running: false, paused: false, start: 0, elapsed: 0, pauseStart: 0 };
+let editMode = null;
+let speed = 1.0;
+let algo = 'spiral';
+let dirtType = 'dust';
+let cleaningIn = false, cleaningLeft = 0;
+let spiralDir = 'E', spiralStep = 0, spiralLeg = 1, spiralLegCount = 0;
+let totalDustCollected = 0;
+let animFrame = null;
+let lastTick = 0;
+const BASE_TICK = 300;
+
+// Charging station
+const CX = 0, CY = 0;
+grid[CX][CY].type = 'charging';
+
+// ---------- DEFAULT FURNITURE ----------
+function placeDefaultFurniture() {
+  [[5,1],[6,1],[7,1],[8,1],[9,1],[5,2],[6,2],[7,2],[8,2],[9,2],
+   [6,5],[7,5],[8,5],[6,6],[7,6],[8,6],
+   [17,0],[17,1],[17,2],[17,3],[18,0],[18,1],
+   [15,5],[15,6],[16,5],[16,6],
+   [2,11],[2,12],[3,11]].forEach(([x,y]) => {
+    if (x < COLS && y < ROWS && !(x===CX && y===CY)) { grid[x][y].type = 'obstacle'; grid[x][y].dirt = null; }
+  });
+}
+function placeDefaultDirt() {
+  [[4,3,'dust'],[11,3,'dust'],[13,4,'dust'],[3,7,'dust'],[10,10,'dust'],
+   [14,10,'dust'],[4,10,'dust'],[19,3,'dust'],[12,12,'dust'],[1,5,'dust'],
+   [7,8,'liquid'],[14,7,'liquid'],[3,4,'liquid'],
+   [11,11,'stain'],[17,4,'stain']].forEach(([x,y,t]) => {
+    if (grid[x][y].type === 'floor') { grid[x][y].dirt = t; grid[x][y].cleanSteps = {dust:1,liquid:3,stain:5}[t]; }
+  });
+}
+placeDefaultFurniture();
+placeDefaultDirt();
+
+// ---------- BFS ----------
+function bfsPath(sx, sy, gx, gy) {
+  if (sx===gx && sy===gy) return [];
+  const visited = Array.from({length:COLS}, ()=>new Array(ROWS).fill(false));
+  const parentX = Array.from({length:COLS}, ()=>new Array(ROWS).fill(-1));
+  const parentY = Array.from({length:COLS}, ()=>new Array(ROWS).fill(-1));
+  const q = [[sx,sy]]; visited[sx][sy] = true;
+  const dx=[0,1,0,-1], dy=[-1,0,1,0];
+  let found = false;
+  while (q.length > 0) {
+    const [cx,cy] = q.shift();
+    if (cx===gx && cy===gy) { found=true; break; }
+    for (let d=0; d<4; d++) {
+      const nx=cx+dx[d], ny=cy+dy[d];
+      if (nx<0||nx>=COLS||ny<0||ny>=ROWS||visited[nx][ny]) continue;
+      if (grid[nx][ny].type==='obstacle' && !(nx===gx&&ny===gy)) continue;
+      visited[nx][ny]=true; parentX[nx][ny]=cx; parentY[nx][ny]=cy;
+      q.push([nx,ny]);
+    }
+  }
+  if (!found) return [];
+  const path=[]; let cx=gx, cy=gy;
+  while (!(cx===sx&&cy===sy)) { path.unshift([cx,cy]); const px=parentX[cx][cy], py=parentY[cx][cy]; cx=px; cy=py; }
+  return path;
+}
+
+// ---------- MOVEMENT ----------
+const DIRS = {N:[0,-1,'↑ Kuzey'], E:[1,0,'→ Doğu'], S:[0,1,'↓ Güney'], W:[-1,0,'← Batı']};
+const TURN_R = {N:'E',E:'S',S:'W',W:'N'};
+const TURN_L = {N:'W',W:'S',S:'E',E:'N'};
+const OPPOSITE = {N:'S',S:'N',E:'W',W:'E'};
+
+function canMove(dir) {
+  const [dx,dy] = DIRS[dir];
+  const nx=robot.x+dx, ny=robot.y+dy;
+  return nx>=0&&nx<COLS&&ny>=0&&ny<ROWS&&grid[nx][ny].type!=='obstacle';
+}
+function doMove(dir) {
+  const [dx,dy] = DIRS[dir];
+  robot.dir = dir;
+  robot.battery = Math.max(0, robot.battery - 0.5);
+  robot.x += dx; robot.y += dy;
+  pathHistory.push({x:robot.x, y:robot.y});
+  if (pathHistory.length > 400) pathHistory.shift();
+}
+
+function moveByAlgo() {
+  if (algo === 'random') {
+    const avail = Object.keys(DIRS).filter(canMove);
+    if (!avail.length) return;
+    if (canMove(robot.dir) && Math.random() > 0.3) doMove(robot.dir);
+    else { const d=avail[Math.floor(Math.random()*avail.length)]; robot.dir=d; doMove(d); }
+  } else if (algo === 'spiral') {
+    if (canMove(spiralDir)) {
+      doMove(spiralDir); spiralStep++;
+      if (spiralStep >= spiralLeg) { spiralStep=0; spiralLegCount++; spiralDir=TURN_R[spiralDir]; if (spiralLegCount%2===0) spiralLeg++; }
+    } else {
+      const r=TURN_R[spiralDir], l=TURN_L[spiralDir];
+      if (canMove(r)) { spiralDir=r; spiralStep=0; doMove(spiralDir); }
+      else if (canMove(l)) { spiralDir=l; spiralStep=0; doMove(spiralDir); }
+      else { const avail=Object.keys(DIRS).filter(canMove); if(avail.length){spiralDir=avail[Math.floor(Math.random()*avail.length)]; doMove(spiralDir);} }
+    }
+  } else { // wall follow
+    const r=TURN_R[robot.dir], f=robot.dir, l=TURN_L[robot.dir], b=OPPOSITE[robot.dir];
+    if (canMove(r)) { robot.dir=r; doMove(r); }
+    else if (canMove(f)) doMove(f);
+    else if (canMove(l)) { robot.dir=l; doMove(l); }
+    else if (canMove(b)) { robot.dir=b; doMove(b); }
+  }
+}
+
+// ---------- TICK ----------
+function tick() {
+  if (robot.battery <= 0) { sim.running=false; setStatus('Batarya Bitti!','low'); updateUI(); draw(); return; }
+
+  if (robot.charging) {
+    robot.battery = Math.min(100, robot.battery + 1.5);
+    if (robot.battery >= 100) { robot.charging=false; robot.returning=false; plannedPath=[]; setStatus('Şarj Tamamlandı','running'); }
+    updateUI(); draw(); return;
+  }
+
+  if (cleaningIn) {
+    cleaningLeft--;
+    robot.battery = Math.max(0, robot.battery - 0.8);
+    if (cleaningLeft <= 0) {
+      cleaningIn = false;
+      const c = grid[robot.x][robot.y];
+      c.dirt = null; c.cleanSteps = 0; c.cleaned = true;
+      totalDustCollected++;
+    }
+    updateUI(); draw(); return;
+  }
+
+  if (robot.battery <= 20 && !robot.returning) {
+    plannedPath = bfsPath(robot.x, robot.y, CX, CY);
+    robot.returning = true;
+    setStatus('İstasyona Dönüyor...','low');
+  }
+
+  if (robot.returning) {
+    if (plannedPath.length > 0) {
+      const [nx,ny] = plannedPath.shift();
+      const dx=nx-robot.x, dy=ny-robot.y;
+      for (const [d,[ddx,ddy]] of Object.entries(DIRS).map(([k,v])=>[k,v])) {
+        if (ddx===dx && ddy===dy) { robot.dir=d; break; }
+      }
+      robot.battery = Math.max(0, robot.battery - 0.5);
+      robot.x=nx; robot.y=ny;
+      pathHistory.push({x:nx,y:ny});
+      if (pathHistory.length > 400) pathHistory.shift();
+    } else {
+      if (robot.x===CX && robot.y===CY) { robot.charging=true; setStatus('Şarj Oluyor...','charging'); }
+      else { robot.returning=false; }
+    }
+  } else {
+    moveByAlgo();
+  }
+
+  // Clean current cell
+  const c = grid[robot.x][robot.y];
+  if (c.dirt) {
+    const steps = {dust:1,liquid:3,stain:5}[c.dirt];
+    if (steps > 1) { cleaningIn=true; cleaningLeft=steps-1; c.cleanSteps--; }
+    else { c.dirt=null; c.cleanSteps=0; c.cleaned=true; totalDustCollected++; }
+  } else { c.cleaned = true; }
+
+  if (!sim.running) return;
+  updateUI(); draw();
+}
+
+// ---------- SIMULATION LOOP ----------
+function loop(ts) {
+  if (!sim.running || sim.paused) return;
+  const interval = BASE_TICK / speed;
+  if (ts - lastTick >= interval) { lastTick=ts; tick(); }
+  animFrame = requestAnimationFrame(loop);
+}
+
+function startSim() {
+  if (!sim.running) {
+    sim.running=true; sim.paused=false; sim.start=Date.now(); lastTick=0;
+    setStatus('Çalışıyor','running');
+  } else if (sim.paused) {
+    sim.paused=false; sim.elapsed += Date.now()-sim.pauseStart;
+    setStatus('Çalışıyor','running');
+  }
+  cancelAnimationFrame(animFrame);
+  animFrame = requestAnimationFrame(loop);
+}
+function pauseSim() {
+  if (sim.running && !sim.paused) {
+    sim.paused=true; sim.pauseStart=Date.now(); setStatus('Duraklatıldı','');
+  }
+}
+function resetSim() {
+  cancelAnimationFrame(animFrame);
+  sim={running:false,paused:false,start:0,elapsed:0,pauseStart:0};
+  robot={x:0,y:0,dir:'E',battery:100,charging:false,returning:false};
+  pathHistory=[{x:0,y:0}]; plannedPath=[];
+  cleaningIn=false; cleaningLeft=0; totalDustCollected=0;
+  spiralDir='E'; spiralStep=0; spiralLeg=1; spiralLegCount=0;
+  for (let x=0;x<COLS;x++) for (let y=0;y<ROWS;y++) {
+    grid[x][y].dirt=null; grid[x][y].cleanSteps=0;
+    grid[x][y].cleaned=false;
+    if (!(x===CX&&y===CY)) grid[x][y].type='floor';
+  }
+  placeDefaultFurniture(); placeDefaultDirt();
+  setStatus('Sıfırlandı','');
+  updateUI(); draw();
+}
+function returnToStation() {
+  if (!sim.running || sim.paused) return;
+  plannedPath = bfsPath(robot.x, robot.y, CX, CY);
+  robot.returning = true;
+  setStatus('İstasyona Dönüyor...','low');
+}
+function setSpeed(v) { speed=parseFloat(v); document.getElementById('speedVal').textContent=parseFloat(v).toFixed(1)+'x'; }
+function manualBattery(v) {
+  document.getElementById('battSliderVal').textContent=Math.round(v)+'%';
+  robot.battery=parseFloat(v);
+}
+
+// ---------- EDIT MODE ----------
+function toggleMode(mode) {
+  editMode = editMode===mode ? null : mode;
+  furniturePlaceMode = false;
+  document.getElementById('btnAddDirt').classList.toggle('active', editMode==='dirt');
+  document.getElementById('btnAddObstacle').classList.toggle('active', false);
+  document.getElementById('btnFreeObstacle').classList.toggle('active', editMode==='obstacle');
+  canvas.style.cursor = editMode ? 'cell' : 'crosshair';
+}
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const cx = Math.floor((e.clientX - rect.left) * scaleX / CS);
+  const cy = Math.floor((e.clientY - rect.top) * scaleY / CS);
+  if (cx<0||cx>=COLS||cy<0||cy>=ROWS) return;
+  if (editMode==='dirt') {
+    const t = document.querySelector('input[name=dirtType]:checked').value;
+    if (grid[cx][cy].type==='floor') { grid[cx][cy].dirt=t; grid[cx][cy].cleanSteps={dust:1,liquid:3,stain:5}[t]; }
+    draw();
+  } else if (editMode==='furniture') {
+    placeFurniture(cx, cy);
+    editMode = 'furniture'; // stay in place mode
+  } else if (editMode==='obstacle') {
+    if (cx===CX&&cy===CY) return;
+    if (cx===robot.x&&cy===robot.y) return;
+    if (grid[cx][cy].type==='obstacle') grid[cx][cy].type='floor';
+    else if (grid[cx][cy].type==='floor') { grid[cx][cy].type='obstacle'; grid[cx][cy].dirt=null; }
+    draw();
+  }
+});
+document.querySelectorAll('input[name=dirtType]').forEach(r => r.addEventListener('change', () => dirtType=r.value));
+document.querySelectorAll('input[name=algo]').forEach(r => r.addEventListener('change', () => {
+  algo=r.value; spiralDir='E'; spiralStep=0; spiralLeg=1; spiralLegCount=0;
+}));
+
+// ---------- DRAW ----------
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for (let x=0;x<COLS;x++) for (let y=0;y<ROWS;y++) drawCell(x,y);
+  drawPath();
+  drawGrid();
+  drawRobot();
+}
+
+function drawCell(x,y) {
+  const c = grid[x][y], px=x*CS, py=y*CS;
+  if (c.type==='obstacle') {
+    ctx.fillStyle='#3e3e4e'; ctx.fillRect(px,py,CS,CS);
+    ctx.strokeStyle='#555568'; ctx.lineWidth=0.5;
+    ctx.strokeRect(px+3,py+3,CS-6,CS-6);
+    ctx.fillStyle='#4a4a5a'; ctx.fillRect(px+4,py+4,CS-8,4);
+    if (c.emojiLabel) {
+      ctx.font = '16px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(c.emojiLabel, px+CS/2, py+CS/2);
+    }
+  } else if (c.type==='charging') {
+    ctx.fillStyle='#c89820'; ctx.fillRect(px,py,CS,CS);
+    ctx.fillStyle='rgba(255,200,50,0.3)'; ctx.fillRect(px+2,py+2,CS-4,CS-4);
+    ctx.fillStyle='white'; ctx.font='bold 18px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('⚡', px+CS/2, py+CS/2);
+  } else {
+    ctx.fillStyle = (x+y)%2===0 ? '#e8e8e0' : '#dcdcd4';
+    ctx.fillRect(px,py,CS,CS);
+    if (c.cleaned && !c.dirt) {
+      ctx.fillStyle='rgba(80,150,255,0.12)'; ctx.fillRect(px,py,CS,CS);
+    }
+    if (c.dirt) drawDirt(ctx, c, px, py);
+  }
+}
+function drawDirt(ctx, c, px, py) {
+  const cx2=px+CS/2, cy2=py+CS/2;
+  if (c.dirt==='dust') {
+    ctx.fillStyle='#b89664';
+    [[cx2-7,cy2-4],[cx2,cy2-7],[cx2+7,cy2-4],[cx2-4,cy2+4],[cx2+4,cy2+4]].forEach(([dx,dy])=>{
+      ctx.beginPath(); ctx.arc(dx,dy,2.5,0,Math.PI*2); ctx.fill();
+    });
+  } else if (c.dirt==='liquid') {
+    ctx.fillStyle='rgba(58,140,220,0.8)';
+    ctx.beginPath(); ctx.ellipse(cx2,cy2,10,6,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx2,cy2,5,10,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(180,230,255,0.5)';
+    ctx.beginPath(); ctx.arc(cx2-2,cy2-2,3,0,Math.PI*2); ctx.fill();
+  } else {
+    ctx.fillStyle='rgba(160,60,60,0.85)';
+    ctx.beginPath(); ctx.ellipse(cx2,cy2,11,8,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(200,80,80,0.4)';
+    ctx.beginPath(); ctx.ellipse(cx2,cy2,5,4,0,0,Math.PI*2); ctx.fill();
+  }
+  if (c.cleanSteps > 1) {
+    ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='bold 9px Arial'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(c.cleanSteps, cx2, py+CS-3);
+  }
+}
+function drawPath() {
+  if (pathHistory.length < 2) return;
+  ctx.strokeStyle='rgba(100,160,220,0.5)'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  ctx.moveTo(pathHistory[0].x*CS+CS/2, pathHistory[0].y*CS+CS/2);
+  for (let i=1;i<pathHistory.length;i++) ctx.lineTo(pathHistory[i].x*CS+CS/2, pathHistory[i].y*CS+CS/2);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function drawGrid() {
+  ctx.strokeStyle='rgba(160,160,150,0.3)'; ctx.lineWidth=0.5;
+  for (let x=0;x<=COLS;x++) { ctx.beginPath(); ctx.moveTo(x*CS,0); ctx.lineTo(x*CS,ROWS*CS); ctx.stroke(); }
+  for (let y=0;y<=ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,y*CS); ctx.lineTo(COLS*CS,y*CS); ctx.stroke(); }
+}
+function drawRobot() {
+  const px=robot.x*CS, py=robot.y*CS, cx2=px+CS/2, cy2=py+CS/2, r=CS*0.36;
+  ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.arc(cx2+2,cy2+2,r,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#282838'; ctx.beginPath(); ctx.arc(cx2,cy2,r,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(80,180,255,0.9)'; ctx.beginPath(); ctx.arc(cx2-r*0.2,cy2-r*0.2,r*0.45,0,Math.PI*2); ctx.fill();
+  const [dx,dy] = DIRS[robot.dir];
+  ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(cx2+dx*r*0.75,cy2+dy*r*0.75); ctx.stroke();
+  // Battery ring
+  const pct=robot.battery/100, battColor=pct>0.5?'#3cb96a':pct>0.2?'#e8a020':'#d94040';
+  ctx.strokeStyle=battColor; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(cx2,cy2,r+3,-Math.PI/2,-Math.PI/2+pct*Math.PI*2); ctx.stroke();
+  if (robot.charging) {
+    ctx.fillStyle='#ffd820'; ctx.font='12px Arial'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText('⚡',cx2,py+2);
+  }
+}
+
+// ---------- UI UPDATE ----------
+function setStatus(text, cls) {
+  const b = document.getElementById('statusBadge');
+  b.textContent = text;
+  b.className = 'status-badge ' + (cls||'');
+}
+function updateUI() {
+  const pct = robot.battery;
+  document.getElementById('posLabel').textContent = `(${robot.x}, ${robot.y})`;
+  document.getElementById('dirLabel').textContent = DIRS[robot.dir][2];
+  document.getElementById('battLabel').textContent = Math.round(pct) + '%';
+  const fill = document.getElementById('battBar');
+  fill.style.width = pct + '%';
+  fill.style.background = pct>50?'#3cb96a':pct>20?'#e8a020':'#d94040';
+  document.getElementById('batterySlider').value = pct;
+  document.getElementById('battSliderVal').textContent = Math.round(pct) + '%';
+
+  const total = COLS * ROWS - countObstacles();
+  let cleaned = 0;
+  for (let x=0;x<COLS;x++) for (let y=0;y<ROWS;y++) if (grid[x][y].cleaned) cleaned++;
+  const remain = total - cleaned;
+  document.getElementById('statTotal').textContent = total + ' m²';
+  document.getElementById('statCleaned').textContent = `${cleaned} m² (${Math.round(cleaned/total*100)}%)`;
+  document.getElementById('statRemain').textContent = `${remain} m² (${Math.round(remain/total*100)}%)`;
+
+  const totalDirt = 15;
+  document.getElementById('statDust').textContent = Math.round(totalDustCollected/totalDirt*100) + '%';
+
+  if (sim.running && !sim.paused) {
+    const ms = Date.now() - sim.start - sim.elapsed;
+    const s = Math.floor(ms/1000), m = Math.floor(s/60);
+    document.getElementById('statTime').textContent = `${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  }
+}
+function countObstacles() {
+  let n=0;
+  for (let x=0;x<COLS;x++) for (let y=0;y<ROWS;y++) if (grid[x][y].type==='obstacle') n++;
+  return n;
+}
+
+// ---- FURNITURE PICKER VARS ----
+const FURNITURE_SHAPES = {
+  sofa:{w:5,h:2}, table:{w:3,h:2}, wardrobe:{w:2,h:4}, bed:{w:4,h:3},
+  desk:{w:3,h:2}, plant:{w:1,h:1}, shelf:{w:1,h:4}, tv:{w:4,h:1}, chair:{w:1,h:1}
+};
+const FURNITURE_EMOJI = {
+  sofa:'🛋️', table:'🪑', wardrobe:'🚪', bed:'🛏️',
+  desk:'🖥️', plant:'🪴', shelf:'📚', tv:'📺', chair:'💺'
+};
+let selectedFurnitureShape = 'sofa';
+let furniturePlaceMode = false;
+
+function selectFurniture(card) {
+  document.querySelectorAll('.furniture-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedFurnitureShape = card.dataset.shape;
+}
+function openFurniturePicker() {
+  document.getElementById('furnitureModal').classList.add('open');
+}
+function closeFurniturePicker() {
+  document.getElementById('furnitureModal').classList.remove('open');
+  furniturePlaceMode = false;
+  editMode = null;
+  document.getElementById('btnAddObstacle').classList.remove('active');
+  canvas.style.cursor = 'crosshair';
+}
+function confirmFurniturePicker() {
+  document.getElementById('furnitureModal').classList.remove('open');
+  furniturePlaceMode = true;
+  editMode = 'furniture';
+  document.getElementById('btnAddObstacle').classList.add('active');
+  canvas.style.cursor = 'cell';
+  setStatus('Mobilya yerleştirme modu — haritaya tıkla', '');
+}
+function placeFurniture(cx, cy) {
+  const shape = FURNITURE_SHAPES[selectedFurnitureShape];
+  for (let dx=0; dx<shape.w; dx++) for (let dy=0; dy<shape.h; dy++) {
+    const nx=cx+dx, ny=cy+dy;
+    if (nx>=COLS||ny>=ROWS||nx<0||ny<0) return;
+    if (nx===CX&&ny===CY) return;
+    if (nx===robot.x&&ny===robot.y) return;
+  }
+  for (let dx=0; dx<shape.w; dx++) for (let dy=0; dy<shape.h; dy++) {
+    const nx=cx+dx, ny=cy+dy;
+    grid[nx][ny].type='obstacle'; grid[nx][ny].dirt=null;
+    grid[nx][ny].emojiLabel = (dx===0&&dy===0) ? FURNITURE_EMOJI[selectedFurnitureShape] : null;
+  }
+  draw();
+}
+
+// Init
+updateUI(); draw();
+</script>
+
+<!-- FURNITURE PICKER MODAL -->
+<div class="modal-overlay" id="furnitureModal">
+  <div class="modal-box">
+    <div class="modal-title">🪑 Mobilya Seç</div>
+    <div class="furniture-grid" id="furnitureGrid">
+      <div class="furniture-card selected" data-shape="sofa" onclick="selectFurniture(this)">
+        <span class="ficon">🛋️</span>
+        <div class="fname">Kanepe</div>
+        <div class="fsize">5×2 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="table" onclick="selectFurniture(this)">
+        <span class="ficon">🪑</span>
+        <div class="fname">Sehpa</div>
+        <div class="fsize">3×2 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="wardrobe" onclick="selectFurniture(this)">
+        <span class="ficon">🚪</span>
+        <div class="fname">Dolap</div>
+        <div class="fsize">2×4 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="bed" onclick="selectFurniture(this)">
+        <span class="ficon">🛏️</span>
+        <div class="fname">Yatak</div>
+        <div class="fsize">4×3 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="desk" onclick="selectFurniture(this)">
+        <span class="ficon">🖥️</span>
+        <div class="fname">Masa</div>
+        <div class="fsize">3×2 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="plant" onclick="selectFurniture(this)">
+        <span class="ficon">🪴</span>
+        <div class="fname">Saksı</div>
+        <div class="fsize">1×1 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="shelf" onclick="selectFurniture(this)">
+        <span class="ficon">📚</span>
+        <div class="fname">Raf</div>
+        <div class="fsize">1×4 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="tv" onclick="selectFurniture(this)">
+        <span class="ficon">📺</span>
+        <div class="fname">TV Ünitesi</div>
+        <div class="fsize">4×1 hücre</div>
+      </div>
+      <div class="furniture-card" data-shape="chair" onclick="selectFurniture(this)">
+        <span class="ficon">💺</span>
+        <div class="fname">Sandalye</div>
+        <div class="fsize">1×1 hücre</div>
+      </div>
+    </div>
+    <div class="modal-note">Seç, ardından haritada yerleştirmek istediğin hücreye tıkla. Mobilya üst-sol köşeden yerleşir.</div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="closeFurniturePicker()">İptal</button>
+      <button class="btn-modal-ok" id="btnModalOk" onclick="confirmFurniturePicker()">Yerleştirme Modunu Aç ✓</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
