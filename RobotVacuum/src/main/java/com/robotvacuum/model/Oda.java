@@ -20,6 +20,7 @@ public class Oda {
     private final Hucre[][] izgara;
     private int sarjIstasyonuX;
     private int sarjIstasyonuY;
+    private final List<Mobilya> mobilyalar = new ArrayList<>();
 
     public Oda(int sutunSayisi, int satirSayisi) {
         this.sutunSayisi = sutunSayisi;
@@ -70,23 +71,91 @@ public class Oda {
     }
 
     /**
-     * Odaya engel (mobilya vb.) koymak için.
+     * Odaya çok hücreli büyük mobilya bloğu ekler.
      */
-    public void engelKoy(int x, int y) {
-        if (!sinirlarIcindeMi(x, y)) return;
-        // Şarj istasyonunun üstüne engel koyulamaz, robota yazık
-        if (izgara[x][y].sarjIstasyonuMu()) return;
-        izgara[x][y].setTip(Hucre.HucreTipi.ENGEL);
-        izgara[x][y].kiriTemizle(); // Engel koyduğumuz yerde kir olamaz
+    public boolean mobilyaEkle(Mobilya mobilya) {
+        // Çarpışma ve sınır kontrolü
+        List<int[]> hucreler = mobilya.getKaplananHucreler();
+        for (int[] p : hucreler) {
+            int x = p[0], y = p[1];
+            if (!sinirlarIcindeMi(x, y)) return false;
+            Hucre hucre = izgara[x][y];
+            if (hucre.engelMi() || hucre.sarjIstasyonuMu()) return false;
+            // Robot oradaysa ekleyemeyiz
+            // (Robot referansına Oda içerisinden doğrudan erişemiyoruz, Kontrolör yapacak)
+        }
+        
+        mobilyalar.add(mobilya);
+        for (int[] p : hucreler) {
+            izgara[p[0]][p[1]].setTip(Hucre.HucreTipi.ENGEL);
+            izgara[p[0]][p[1]].kiriTemizle();
+        }
+        return true;
     }
 
     /**
-     * Koyduğumuz engeli kaldırmak istersek burayı çağırıyoruz.
+     * Verilen koordinattaki mobilyayı (ve kapladığı tüm engel hücrelerini) siler.
+     */
+    public void mobilyaSil(int x, int y) {
+        Mobilya silinecek = null;
+        for (Mobilya m : mobilyalar) {
+            for (int[] p : m.getKaplananHucreler()) {
+                if (p[0] == x && p[1] == y) {
+                    silinecek = m;
+                    break;
+                }
+            }
+            if (silinecek != null) break;
+        }
+
+        if (silinecek != null) {
+            mobilyalar.remove(silinecek);
+            for (int[] p : silinecek.getKaplananHucreler()) {
+                izgara[p[0]][p[1]].setTip(Hucre.HucreTipi.ZEMIN);
+            }
+        }
+    }
+
+    public List<Mobilya> getMobilyalar() {
+        return mobilyalar;
+    }
+
+    /**
+     * Eskiden kalma tekli engel koyma metodu, geriye dönük uyumluluk veya ufak engeller için.
+     */
+    public void engelKoy(int x, int y) {
+        if (!sinirlarIcindeMi(x, y)) return;
+        Hucre hucre = izgara[x][y];
+        if (!hucre.engelMi() && !hucre.sarjIstasyonuMu()) {
+            hucre.setTip(Hucre.HucreTipi.ENGEL);
+            hucre.kiriTemizle();
+        }
+    }
+
+    /**
+     * Belirtilen koordinattaki engeli veya büyük mobilyayı kaldırır.
      */
     public void engeliKaldir(int x, int y) {
         if (!sinirlarIcindeMi(x, y)) return;
-        if (izgara[x][y].engelMi()) {
-            izgara[x][y].setTip(Hucre.HucreTipi.ZEMIN);
+        Hucre hucre = izgara[x][y];
+        if (hucre.engelMi()) {
+            // Büyük mobilyanın parçasıysa tamamını sil
+            boolean mobilyaParcasi = false;
+            for (Mobilya m : mobilyalar) {
+                for (int[] p : m.getKaplananHucreler()) {
+                    if (p[0] == x && p[1] == y) {
+                        mobilyaSil(x, y);
+                        mobilyaParcasi = true;
+                        break;
+                    }
+                }
+                if (mobilyaParcasi) break;
+            }
+            
+            // Eğer mobilya parçası değilse sadece o hücreyi ZEMIN yap
+            if (!mobilyaParcasi) {
+                hucre.setTip(Hucre.HucreTipi.ZEMIN);
+            }
         }
     }
 
@@ -130,6 +199,23 @@ public class Oda {
                 if (!hucre.engelMi() && !hucre.sarjIstasyonuMu()) {
                     hucre.kiriTemizle();
                     hucre.setTemizlendi(false);
+                }
+            }
+        }
+    }
+
+    /**
+     * Odayı tamamen ilk günkü haline getirir (tüm engeller de silinir).
+     */
+    public void sifirla() {
+        mobilyalar.clear();
+        for (int x = 0; x < sutunSayisi; x++) {
+            for (int y = 0; y < satirSayisi; y++) {
+                Hucre hucre = izgara[x][y];
+                hucre.kiriTemizle();
+                hucre.setTemizlendi(false);
+                if (!hucre.sarjIstasyonuMu()) {
+                    hucre.setTip(Hucre.HucreTipi.ZEMIN);
                 }
             }
         }

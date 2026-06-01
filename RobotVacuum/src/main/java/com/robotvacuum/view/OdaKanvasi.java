@@ -112,6 +112,9 @@ public class OdaKanvasi extends Canvas {
             }
         }
         
+        // Sabit büyük boyutlu mobilya nesnelerini çiz
+        mobilyalariCiz(gc, oda);
+        
         // Yol geçmişi, koordinat çizgileri ve en son robotu çiziyoruz (üst üste binme sırası)
         yoluCiz(gc, robot);
         izgarayiCiz(gc, oda);
@@ -131,12 +134,19 @@ public class OdaKanvasi extends Canvas {
 
         switch (hucre.getTip()) {
             case ENGEL -> {
-                // Hücresel Çizim (Grid Yapısı): Resmi grid dışına taşırmadan, 1px padding ile ortalayarak çiz.
-                // Modüler koltuk düzeni için her engel hücresine ayrı ayrı tekli koltuk basılır.
-                if (tekliKoltukGorseli != null) {
-                    gc.drawImage(tekliKoltukGorseli, px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2);
-                } else {
-                    // Yedek fallback çizimi
+                // Sadece eski tip veya arayüzde mobilya olmayan engeller için fallback (Örn: mutfak tezgahı)
+                // Yeni nesil büyük mobilyalar mobilyalariCiz() metodunda çizilecek.
+                boolean mobilyaMi = false;
+                for (com.robotvacuum.model.Mobilya m : oda.getMobilyalar()) {
+                    for (int[] p : m.getKaplananHucreler()) {
+                        if (p[0] == x && p[1] == y) {
+                            mobilyaMi = true; break;
+                        }
+                    }
+                    if (mobilyaMi) break;
+                }
+                
+                if (!mobilyaMi) {
                     gc.setFill(Color.rgb(101, 67, 33));
                     gc.fillRect(px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2);
                 }
@@ -163,6 +173,59 @@ public class OdaKanvasi extends Canvas {
 
                 // Üzerinde kir varsa kir görselini çizelim
                 if (hucre.kirliMi()) kiriCiz(gc, hucre, px, py);
+            }
+        }
+    }
+
+    private void mobilyalariCiz(GraphicsContext gc, Oda oda) {
+        for (com.robotvacuum.model.Mobilya m : oda.getMobilyalar()) {
+            double px = m.getStartX() * hucreBoyutu;
+            double py = m.getStartY() * hucreBoyutu;
+            // Birleşmeyi engelleme ve grid taşmama kuralı: genislik - 2, offset + 1
+            double g = (m.getGenislik() * hucreBoyutu) - 2;
+            double h = (m.getYukseklik() * hucreBoyutu) - 2;
+            px += 1;
+            py += 1;
+
+            if (m.getTip() == com.robotvacuum.model.MobilyaTipi.L_KANEPE) {
+                // L Kanepe için özel çizim: Elimizde L şeklinde PNG olmadığı için,
+                // bir yatay kanepe ve bir dikey tekli koltuk ile L şekli fırçalayacağız.
+                // L'nin uzun kısmı x ekseninde, kısa köşesi sol altta olsun.
+                if (kanepGorseli != null && tekliKoltukGorseli != null) {
+                    // 4x4'lük alana L çiziyoruz (4x1 dikey + 3x1 yatay gibi)
+                    // Sol dikey kısım (1x4 boyutunda)
+                    double dikeyGenislik = hucreBoyutu - 2;
+                    double dikeyYukseklik = (m.getYukseklik() * hucreBoyutu) - 2;
+                    gc.drawImage(kanepGorseli, px, py, dikeyGenislik, dikeyYukseklik);
+
+                    // Alt yatay kısım (Kalan 3x1 boyutunda)
+                    double yatayGenislik = ((m.getGenislik() - 1) * hucreBoyutu) - 2;
+                    double yatayYukseklik = hucreBoyutu - 2;
+                    double yatayPx = px + hucreBoyutu;
+                    double yatayPy = py + (m.getYukseklik() - 1) * hucreBoyutu;
+                    
+                    gc.save();
+                    gc.translate(yatayPx + yatayGenislik/2, yatayPy + yatayYukseklik/2);
+                    gc.rotate(-90);
+                    gc.drawImage(tekliKoltukGorseli, -yatayYukseklik/2, -yatayGenislik/2, yatayYukseklik, yatayGenislik);
+                    gc.restore();
+                }
+            } else {
+                // TEKLI_KOLTUK veya KANEPE
+                Image gorsel = (m.getTip() == com.robotvacuum.model.MobilyaTipi.TEKLI_KOLTUK) ? 
+                                (deriKoltukGorseli != null ? deriKoltukGorseli : tekliKoltukGorseli) : kanepGorseli;
+                
+                if (gorsel != null) {
+                    gc.save();
+                    gc.translate(px + g/2, py + h/2);
+                    if (m.isYatayMi()) {
+                        gc.rotate(-90);
+                        gc.drawImage(gorsel, -h/2, -g/2, h, g);
+                    } else {
+                        gc.drawImage(gorsel, -g/2, -h/2, g, h);
+                    }
+                    gc.restore();
+                }
             }
         }
     }

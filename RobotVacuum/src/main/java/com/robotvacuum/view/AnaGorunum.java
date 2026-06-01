@@ -38,6 +38,7 @@ public class AnaGorunum {
     private Label lblKonum, lblYon, lblBatarya;
     private ProgressBar pilGostergesi;
     private Button btnKirEkle, btnEngelEkle, btnBaslat, btnDuraklat, btnSifirla, btnIstasyonaDon;
+    private ComboBox<com.robotvacuum.model.MobilyaTipi> mobilyaSecimKutusu;
     private Slider pilAyarKaydirici;
 
     // Alt durum çubuğundaki (Status Bar) etiketler
@@ -181,10 +182,35 @@ public class AnaGorunum {
 
     private VBox engelSecimBolumunuKur() {
         VBox kutu = new VBox(4);
-        btnEngelEkle = new Button("🪑 Mobilya Ekle");
+        
+        Label baslik = new Label("🪑 Mobilya Seçimi");
+        baslik.getStyleClass().add("section-header-small");
+
+        mobilyaSecimKutusu = new ComboBox<>();
+        mobilyaSecimKutusu.getItems().addAll(com.robotvacuum.model.MobilyaTipi.values());
+        mobilyaSecimKutusu.setValue(com.robotvacuum.model.MobilyaTipi.TEKLI_KOLTUK);
+        
+        // Enum'ın ekranAdı metodunu kullanarak ComboBox'ta güzel görünmesini sağlıyoruz
+        mobilyaSecimKutusu.setCellFactory(lv -> new javafx.scene.control.ListCell<com.robotvacuum.model.MobilyaTipi>() {
+            @Override
+            protected void updateItem(com.robotvacuum.model.MobilyaTipi item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item.getEkranAdi() + " (" + item.getGenislik() + "x" + item.getYukseklik() + ")");
+            }
+        });
+        mobilyaSecimKutusu.setButtonCell(new javafx.scene.control.ListCell<com.robotvacuum.model.MobilyaTipi>() {
+            @Override
+            protected void updateItem(com.robotvacuum.model.MobilyaTipi item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item.getEkranAdi() + " (" + item.getGenislik() + "x" + item.getYukseklik() + ")");
+            }
+        });
+
+        btnEngelEkle = new Button("➕ Mobilya Ekle");
         btnEngelEkle.getStyleClass().add("btn-action-secondary");
         btnEngelEkle.setMaxWidth(Double.MAX_VALUE);
-        kutu.getChildren().add(btnEngelEkle);
+        
+        kutu.getChildren().addAll(baslik, mobilyaSecimKutusu, btnEngelEkle);
         return kutu;
     }
 
@@ -454,7 +480,19 @@ public class AnaGorunum {
             if (n == rbSivi) kontrolor.kirTipiSec(KirTipi.SIVI);
             if (n == rbLeke) kontrolor.kirTipiSec(KirTipi.LEKE);
         });
+    }
 
+    public KirTipi getSecilenKirTipi() {
+        if (rbSivi.isSelected()) return KirTipi.SIVI;
+        if (rbLeke.isSelected()) return KirTipi.LEKE;
+        return KirTipi.TOZ;
+    }
+
+    public com.robotvacuum.model.MobilyaTipi getSecilenMobilyaTipi() {
+        return mobilyaSecimKutusu.getValue();
+    }
+
+    private void algoritmaBagla() {
         algoritmaGrubu.selectedToggleProperty().addListener((obs, o, n) -> {
             if (n == rbRastgele) kontrolor.algoritmaSec(TemizlikAlgoritmasi.RASTGELE);
             if (n == rbSpiral) kontrolor.algoritmaSec(TemizlikAlgoritmasi.SPIRAL);

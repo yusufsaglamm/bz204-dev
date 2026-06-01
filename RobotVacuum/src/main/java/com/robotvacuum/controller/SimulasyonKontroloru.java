@@ -156,10 +156,12 @@ public class SimulasyonKontroloru {
             if (hucre.engelMi()) {
                 oda.engeliKaldir(sutun, satir);
             } else {
-                // Robotun veya şarj istasyonunun durduğu yere engel koyulmasın
-                boolean robotOradaMi = (sutun == model.getRobot().getX() && satir == model.getRobot().getY());
-                boolean istasyonOradaMi = (sutun == oda.getSarjIstasyonuX() && satir == oda.getSarjIstasyonuY());
-                if (!robotOradaMi && !istasyonOradaMi) {
+                com.robotvacuum.model.MobilyaTipi tip = gorunum.getSecilenMobilyaTipi();
+                if (tip != null) {
+                    boolean yatay = (tip == com.robotvacuum.model.MobilyaTipi.YATAY_KANEPE);
+                    oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(tip, sutun, satir, yatay));
+                } else {
+                    // Fallback for safe mode
                     oda.engelKoy(sutun, satir);
                 }
             }
@@ -177,19 +179,10 @@ public class SimulasyonKontroloru {
         oda.setSarjIstasyonu(sx, sy);
         model.getRobot().sifirla(sx, sy);
 
-        // Salon engellerini koyalım
-        for (int x = 4; x <= 9; x++) {
-            oda.engelKoy(x, 2);
-            oda.engelKoy(x, 3);
-        }
-        for (int y = 2; y <= 6; y++) {
-            oda.engelKoy(4, y);
-        }
-        for (int x = 14; x <= 18; x++) {
-            oda.engelKoy(x, 0);
-        }
-        oda.engelKoy(6, 5);
-        oda.engelKoy(7, 5);
+        // Salon mobilyalarını (büyük bloklar halinde) ekleyelim
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.L_KANEPE, 4, 2, false));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.TEKLI_KOLTUK, 6, 5, false));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.YATAY_KANEPE, 14, 0, true));
 
         // İlk kirleri serpiştirelim
         oda.kirEkle(5, 4, KirTipi.TOZ);
