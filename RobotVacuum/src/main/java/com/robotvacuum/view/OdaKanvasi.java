@@ -217,8 +217,32 @@ public class OdaKanvasi extends Canvas {
                     Image gorsel = mobilyaGorseliSec(hucreSayisi, genislik, yukseklik);
 
                     if (gorsel != null) {
-                        // Görseli engel grubunun bounding box'ına sığdırarak çiz
-                        gc.drawImage(gorsel, px, py, genislik, yukseklik);
+                        boolean yatayMi = genislik > yukseklik;
+                        
+                        // Görsellerin kenarlarında şeffaf boşluklar varsa veya mobilyanın hücreleri 
+                        // tam doldurması için görseli bounding box'ın merkezinden biraz büyüterek çiziyoruz
+                        double olcek = 1.15; 
+                        double cizimGenislik = genislik * olcek;
+                        double cizimYukseklik = yukseklik * olcek;
+                        
+                        double cx = px + (genislik / 2.0);
+                        double cy = py + (yukseklik / 2.0);
+
+                        gc.save();
+                        // Merkeze ötele
+                        gc.translate(cx, cy);
+                        
+                        if (yatayMi) {
+                            // Engel grubu yatay (genişlik > yükseklik), ama resimlerimiz dikey formatta.
+                            // Bu yüzden resmi -90 derece (veya 90 derece) döndürüyoruz.
+                            gc.rotate(-90);
+                            // Döndürülmüş sistemde, resmin boyu grubun genişliğine, eni grubun yüksekliğine denk gelmeli
+                            gc.drawImage(gorsel, -cizimYukseklik / 2.0, -cizimGenislik / 2.0, cizimYukseklik, cizimGenislik);
+                        } else {
+                            // Engel dikey veya kare, normal şekilde çiz
+                            gc.drawImage(gorsel, -cizimGenislik / 2.0, -cizimYukseklik / 2.0, cizimGenislik, cizimYukseklik);
+                        }
+                        gc.restore();
                     }
                 }
             }
