@@ -105,15 +105,12 @@ public class OdaKanvasi extends Canvas {
         gc.setFill(Color.rgb(230, 228, 220));
         gc.fillRect(0, 0, oda.getSutunSayisi() * hucreBoyutu, oda.getSatirSayisi() * hucreBoyutu);
 
-        // Her bir hücreyi tipine göre çiz (engeller hariç, onları ayrıca grup olarak çizeceğiz)
+        // Her bir hücreyi tipine göre çiz
         for (int x = 0; x < oda.getSutunSayisi(); x++) {
             for (int y = 0; y < oda.getSatirSayisi(); y++) {
                 hucreyiCiz(gc, oda, x, y);
             }
         }
-
-        // Engel gruplarını (mobilyaları) tespit edip üstlerine görsel çiz
-        mobilyaGorselleriniCiz(gc, oda);
         
         // Yol geçmişi, koordinat çizgileri ve en son robotu çiziyoruz (üst üste binme sırası)
         yoluCiz(gc, robot);
@@ -134,8 +131,15 @@ public class OdaKanvasi extends Canvas {
 
         switch (hucre.getTip()) {
             case ENGEL -> {
-                // Engel hücreleri mobilyaGorselleriniCiz() ile çiziliyor,
-                // burada sadece alt zemin rengini veriyoruz
+                // Hücresel Çizim (Grid Yapısı): Resmi grid dışına taşırmadan, 1px padding ile ortalayarak çiz.
+                // Modüler koltuk düzeni için her engel hücresine ayrı ayrı tekli koltuk basılır.
+                if (tekliKoltukGorseli != null) {
+                    gc.drawImage(tekliKoltukGorseli, px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2);
+                } else {
+                    // Yedek fallback çizimi
+                    gc.setFill(Color.rgb(101, 67, 33));
+                    gc.fillRect(px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2);
+                }
             }
             case SARJ_ISTASYONU -> {
                 // Şarj istasyonu sarı renkte ve ortasında şimşek simgesi var
@@ -161,112 +165,6 @@ public class OdaKanvasi extends Canvas {
                 if (hucre.kirliMi()) kiriCiz(gc, hucre, px, py);
             }
         }
-    }
-
-    /**
-     * Odadaki tüm engel hücrelerini BFS ile gruplayıp, her grubun üstüne
-     * uygun mobilya görselini çizer.
-     */
-    private void mobilyaGorselleriniCiz(GraphicsContext gc, Oda oda) {
-        int sutunlar = oda.getSutunSayisi();
-        int satirlar = oda.getSatirSayisi();
-        boolean[][] ziyaretEdildi = new boolean[sutunlar][satirlar];
-
-        for (int x = 0; x < sutunlar; x++) {
-            for (int y = 0; y < satirlar; y++) {
-                Hucre hucre = oda.getHucre(x, y);
-                if (hucre != null && hucre.engelMi() && !ziyaretEdildi[x][y]) {
-                    // BFS ile bu engelin bağlı olduğu tüm hücreleri bul
-                    List<int[]> grup = new ArrayList<>();
-                    Queue<int[]> kuyruk = new LinkedList<>();
-                    kuyruk.add(new int[]{x, y});
-                    ziyaretEdildi[x][y] = true;
-
-                    int minX = x, maxX = x, minY = y, maxY = y;
-
-                    while (!kuyruk.isEmpty()) {
-                        int[] mevcut = kuyruk.poll();
-                        grup.add(mevcut);
-                        minX = Math.min(minX, mevcut[0]);
-                        maxX = Math.max(maxX, mevcut[0]);
-                        minY = Math.min(minY, mevcut[1]);
-                        maxY = Math.max(maxY, mevcut[1]);
-
-                        int[][] yonler = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
-                        for (int[] yon : yonler) {
-                            int nx = mevcut[0] + yon[0];
-                            int ny = mevcut[1] + yon[1];
-                            if (oda.sinirlarIcindeMi(nx, ny) && !ziyaretEdildi[nx][ny]) {
-                                Hucre komsu = oda.getHucre(nx, ny);
-                                if (komsu != null && komsu.engelMi()) {
-                                    ziyaretEdildi[nx][ny] = true;
-                                    kuyruk.add(new int[]{nx, ny});
-                                }
-                            }
-                        }
-                    }
-
-                    // Grubun sınır kutusunu hesapla (bounding box)
-                    double px = minX * hucreBoyutu;
-                    double py = minY * hucreBoyutu;
-                    double genislik = (maxX - minX + 1) * hucreBoyutu;
-                    double yukseklik = (maxY - minY + 1) * hucreBoyutu;
-                    int hucreSayisi = grup.size();
-
-                    // Grubun boyutuna göre uygun mobilya görselini seç
-                    Image gorsel = mobilyaGorseliSec(hucreSayisi, genislik, yukseklik);
-
-                    if (gorsel != null) {
-                        boolean yatayMi = genislik > yukseklik;
-                        
-                        // Görsellerin kenarlarında şeffaf boşluklar varsa veya mobilyanın hücreleri 
-                        // tam doldurması için görseli bounding box'ın merkezinden biraz büyüterek çiziyoruz
-                        double olcek = 1.15; 
-                        double cizimGenislik = genislik * olcek;
-                        double cizimYukseklik = yukseklik * olcek;
-                        
-                        double cx = px + (genislik / 2.0);
-                        double cy = py + (yukseklik / 2.0);
-
-                        gc.save();
-                        // Merkeze ötele
-                        gc.translate(cx, cy);
-                        
-                        if (yatayMi) {
-                            // Engel grubu yatay (genişlik > yükseklik), ama resimlerimiz dikey formatta.
-                            // Bu yüzden resmi -90 derece (veya 90 derece) döndürüyoruz.
-                            gc.rotate(-90);
-                            // Döndürülmüş sistemde, resmin boyu grubun genişliğine, eni grubun yüksekliğine denk gelmeli
-                            gc.drawImage(gorsel, -cizimYukseklik / 2.0, -cizimGenislik / 2.0, cizimYukseklik, cizimGenislik);
-                        } else {
-                            // Engel dikey veya kare, normal şekilde çiz
-                            gc.drawImage(gorsel, -cizimGenislik / 2.0, -cizimYukseklik / 2.0, cizimGenislik, cizimYukseklik);
-                        }
-                        gc.restore();
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Engel grubunun boyutuna ve hücre sayısına göre hangi mobilya görselinin
-     * kullanılacağını belirler.
-     */
-    private Image mobilyaGorseliSec(int hucreSayisi, double genislik, double yukseklik) {
-        // Büyük grup (5+ hücre) = kanepe görseli
-        if (hucreSayisi >= 5 && kanepGorseli != null) {
-            return kanepGorseli;
-        }
-        // Orta grup (3-4 hücre) = deri koltuk görseli
-        if (hucreSayisi >= 3 && deriKoltukGorseli != null) {
-            return deriKoltukGorseli;
-        }
-        // Küçük grup (1-2 hücre) = tekli koltuk görseli
-        if (tekliKoltukGorseli != null) {
-            return tekliKoltukGorseli;
-        }
-        return null;
     }
 
     /**
