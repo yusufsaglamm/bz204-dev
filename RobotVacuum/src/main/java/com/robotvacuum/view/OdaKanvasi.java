@@ -189,26 +189,22 @@ public class OdaKanvasi extends Canvas {
 
             if (m.getTip() == com.robotvacuum.model.MobilyaTipi.L_KANEPE) {
                 // L Kanepe için özel çizim: Elimizde L şeklinde PNG olmadığı için,
-                // bir yatay kanepe ve bir dikey tekli koltuk ile L şekli fırçalayacağız.
-                // L'nin uzun kısmı x ekseninde, kısa köşesi sol altta olsun.
+                // bir dikey kanepe ve bir tekli koltuk ile L şekli fırçalayacağız.
                 if (kanepGorseli != null && tekliKoltukGorseli != null) {
-                    // 4x4'lük alana L çiziyoruz (4x1 dikey + 3x1 yatay gibi)
-                    // Sol dikey kısım (1x4 boyutunda)
-                    double dikeyGenislik = hucreBoyutu - 2;
-                    double dikeyYukseklik = (m.getYukseklik() * hucreBoyutu) - 2;
+                    // Sol dikey kısım (2x4 boyutunda = 2 hücre genişlik, 4 hücre yükseklik)
+                    double dikeyGenislik = (2 * hucreBoyutu) - 2;
+                    double dikeyYukseklik = (4 * hucreBoyutu) - 2;
                     gc.drawImage(kanepGorseli, px, py, dikeyGenislik, dikeyYukseklik);
 
-                    // Alt yatay kısım (Kalan 3x1 boyutunda)
-                    double yatayGenislik = ((m.getGenislik() - 1) * hucreBoyutu) - 2;
-                    double yatayYukseklik = hucreBoyutu - 2;
-                    double yatayPx = px + hucreBoyutu;
-                    double yatayPy = py + (m.getYukseklik() - 1) * hucreBoyutu;
+                    // Alt sağ yatay kısım (Kalan 2x2 boyutunda = 2 hücre genişlik, 2 hücre yükseklik)
+                    double yatayGenislik = (2 * hucreBoyutu) - 2;
+                    double yatayYukseklik = (2 * hucreBoyutu) - 2;
+                    double yatayPx = px + 2 * hucreBoyutu;
+                    double yatayPy = py + 2 * hucreBoyutu;
                     
-                    gc.save();
-                    gc.translate(yatayPx + yatayGenislik/2, yatayPy + yatayYukseklik/2);
-                    gc.rotate(-90);
-                    gc.drawImage(tekliKoltukGorseli, -yatayYukseklik/2, -yatayGenislik/2, yatayYukseklik, yatayGenislik);
-                    gc.restore();
+                    // Tekli koltuk veya deri koltuk (2x2)
+                    Image kGorsel = (deriKoltukGorseli != null) ? deriKoltukGorseli : tekliKoltukGorseli;
+                    gc.drawImage(kGorsel, yatayPx, yatayPy, yatayGenislik, yatayYukseklik);
                 }
             } else {
                 // TEKLI_KOLTUK veya KANEPE

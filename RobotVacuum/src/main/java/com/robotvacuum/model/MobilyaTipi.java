@@ -2,8 +2,8 @@ package com.robotvacuum.model;
 
 public enum MobilyaTipi {
     TEKLI_KOLTUK(2, 2, "Tekli Koltuk"),
-    YATAY_KANEPE(4, 2, "Yatay Kanepe"),
-    DIKEY_KANEPE(2, 4, "Dikey Kanepe"),
+    YATAY_KANEPE(3, 2, "Yatay Kanepe"),
+    DIKEY_KANEPE(2, 3, "Dikey Kanepe"),
     L_KANEPE(4, 4, "L Kanepe");
 
     private final int genislikHucresi;

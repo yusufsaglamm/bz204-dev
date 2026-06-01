@@ -43,15 +43,17 @@ public class Mobilya {
         int h = getYukseklik();
 
         if (tip == MobilyaTipi.L_KANEPE) {
-            // L-shape: Covers the long edge (startY to startY+h-1 for x=startX) 
-            // and the bottom edge (startX to startX+w-1 for y=startY+h-1)
-            // Or something similar based on orientation. Let's make a standard L:
-            // Left column and Bottom row.
-            for (int y = 0; y < h; y++) {
-                hucreler.add(new int[]{startX, startY + y});
+            // Sol dikey 2x4 parça (x: startX..startX+1, y: startY..startY+3)
+            for (int x = 0; x < 2; x++) {
+                for (int y = 0; y < 4; y++) {
+                    hucreler.add(new int[]{startX + x, startY + y});
+                }
             }
-            for (int x = 1; x < w; x++) {
-                hucreler.add(new int[]{startX + x, startY + h - 1});
+            // Alt sağ 2x2 parça (x: startX+2..startX+3, y: startY+2..startY+3)
+            for (int x = 2; x < 4; x++) {
+                for (int y = 2; y < 4; y++) {
+                    hucreler.add(new int[]{startX + x, startY + y});
+                }
             }
         } else {
             // Rectangle
