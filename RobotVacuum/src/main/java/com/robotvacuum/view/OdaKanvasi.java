@@ -106,17 +106,8 @@ public class OdaKanvasi extends Canvas {
 
         switch (hucre.getTip()) {
             case ENGEL -> {
-                // Engellere şık ahşap görünümlü bir gradyan veriyoruz
-                LinearGradient ahsapGradyan = new LinearGradient(
-                        0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                        new Stop(0, Color.rgb(139, 90, 43)),
-                        new Stop(1, Color.rgb(101, 67, 33))
-                );
-                gc.setFill(ahsapGradyan);
-                gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
-                gc.setStroke(Color.rgb(60, 30, 10));
-                gc.setLineWidth(2);
-                gc.strokeRect(px + 2, py + 2, hucreBoyutu - 4, hucreBoyutu - 4);
+                // Üstten görünüm mobilya çizimi (koltuk/kanepe tarzı)
+                engeliCiz(gc, oda, x, y, px, py);
             }
             case SARJ_ISTASYONU -> {
                 // Şarj istasyonu sarı renkte ve ortasında şimşek simgesi var
@@ -142,6 +133,89 @@ public class OdaKanvasi extends Canvas {
                 if (hucre.kirliMi()) kiriCiz(gc, hucre, px, py);
             }
         }
+    }
+
+    /**
+     * Üstten görünüm mobilya çizimi (koltuk/kanepe stili).
+     * Komşu engel hücrelerine bakarak açıkta kalan kenarlara kolçak/sırtlık,
+     * iç alana ise yumuşak minder dokusu çizer.
+     */
+    private void engeliCiz(GraphicsContext gc, Oda oda, int x, int y, double px, double py) {
+        double b = hucreBoyutu;
+
+        // Komşu hücrelerde de engel var mı kontrol et (mobilyanın devamı mı?)
+        boolean ustKomsu = komsudaEngelVarMi(oda, x, y - 1);
+        boolean altKomsu = komsudaEngelVarMi(oda, x, y + 1);
+        boolean solKomsu = komsudaEngelVarMi(oda, x - 1, y);
+        boolean sagKomsu = komsudaEngelVarMi(oda, x + 1, y);
+
+        // Kolçak/sırtlık kalınlığı (açıkta kalan kenarlarda bu kadar çıkıntı yapacak)
+        double kenarKalinligi = b * 0.18;
+
+        // 1) Mobilyanın alt zemin katmanı (koyu kahverengi deri taban)
+        gc.setFill(Color.rgb(75, 50, 28));
+        gc.fillRoundRect(px + 1, py + 1, b - 2, b - 2, 4, 4);
+
+        // 2) Kolçak/sırtlık çerçevesi (açıkta kalan kenarlarda koyu deri şerit çiziyoruz)
+        gc.setFill(Color.rgb(95, 60, 30));
+
+        if (!ustKomsu) {
+            // Üst kenar açıkta = sırtlık
+            gc.fillRoundRect(px + 2, py + 2, b - 4, kenarKalinligi, 5, 5);
+        }
+        if (!altKomsu) {
+            // Alt kenar açıkta = ön kenar
+            gc.fillRoundRect(px + 2, py + b - kenarKalinligi - 2, b - 4, kenarKalinligi, 5, 5);
+        }
+        if (!solKomsu) {
+            // Sol kenar açıkta = sol kolçak
+            gc.fillRoundRect(px + 2, py + 2, kenarKalinligi, b - 4, 5, 5);
+        }
+        if (!sagKomsu) {
+            // Sağ kenar açıkta = sağ kolçak
+            gc.fillRoundRect(px + b - kenarKalinligi - 2, py + 2, kenarKalinligi, b - 4, 5, 5);
+        }
+
+        // 3) İç minder alanını hesapla (kolçakların bittiği yerden başlıyor)
+        double minderSol   = px + (solKomsu ? 2 : kenarKalinligi + 3);
+        double minderUst   = py + (ustKomsu ? 2 : kenarKalinligi + 3);
+        double minderSag   = px + b - (sagKomsu ? 2 : kenarKalinligi + 3);
+        double minderAlt   = py + b - (altKomsu ? 2 : kenarKalinligi + 3);
+        double minderGenislik = minderSag - minderSol;
+        double minderYukseklik = minderAlt - minderUst;
+
+        if (minderGenislik > 2 && minderYukseklik > 2) {
+            // Minder ana rengi (sıcak kahverengi deri)
+            gc.setFill(Color.rgb(145, 95, 55));
+            gc.fillRoundRect(minderSol, minderUst, minderGenislik, minderYukseklik, 6, 6);
+
+            // Minder üzerindeki ışık yansıması (parlaklık efekti)
+            gc.setFill(Color.rgb(170, 120, 75, 0.5));
+            gc.fillRoundRect(minderSol + 2, minderUst + 2,
+                    minderGenislik * 0.5, minderYukseklik * 0.4, 4, 4);
+
+            // Minder dikişleri (yatay ve dikey ince çizgiler)
+            gc.setStroke(Color.rgb(120, 78, 42, 0.4));
+            gc.setLineWidth(0.6);
+            double dikisOrta = minderSol + minderGenislik / 2.0;
+            gc.strokeLine(dikisOrta, minderUst + 3, dikisOrta, minderAlt - 3);
+            double dikisDikey = minderUst + minderYukseklik / 2.0;
+            gc.strokeLine(minderSol + 3, dikisDikey, minderSag - 3, dikisDikey);
+        }
+
+        // 4) Mobilyanın dış kenar gölgesi (3D derinlik hissi)
+        gc.setStroke(Color.rgb(40, 25, 10, 0.5));
+        gc.setLineWidth(1.2);
+        gc.strokeRoundRect(px + 1.5, py + 1.5, b - 3, b - 3, 4, 4);
+    }
+
+    /**
+     * Belirtilen koordinattaki hücre engel mi diye kontrol eder.
+     */
+    private boolean komsudaEngelVarMi(Oda oda, int x, int y) {
+        if (!oda.sinirlarIcindeMi(x, y)) return false;
+        Hucre komsu = oda.getHucre(x, y);
+        return komsu != null && komsu.engelMi();
     }
 
     /**
