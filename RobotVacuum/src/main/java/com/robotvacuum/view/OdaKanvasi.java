@@ -3,13 +3,17 @@ package com.robotvacuum.view;
 import com.robotvacuum.model.*;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 /**
  * Robot süpürgenin ve odanın 2 boyutlu haritasını ekrana çizen sınıf.
@@ -39,10 +43,31 @@ public class OdaKanvasi extends Canvas {
     private double kaymaX = 0;
     private double kaymaY = 0;
 
+    // Üstten görünüm mobilya görselleri
+    private final Image kanepGorseli;
+    private final Image tekliKoltukGorseli;
+    private final Image deriKoltukGorseli;
+
     public OdaKanvasi(SimulasyonModeli model) {
         // İlk açılışta varsayılan boyutlarla oluşturuyoruz
         super(Oda.VARSAYILAN_SUTUN * 40, Oda.VARSAYILAN_SATIR * 40);
         this.model = model;
+
+        // Mobilya görsellerini resources klasöründen yüklüyoruz
+        kanepGorseli = gorselYukle("/com/robotvacuum/images/kanepe.png");
+        tekliKoltukGorseli = gorselYukle("/com/robotvacuum/images/tekli_koltuk.png");
+        deriKoltukGorseli = gorselYukle("/com/robotvacuum/images/deri_koltuk.png");
+    }
+
+    /**
+     * Resources klasöründen görsel dosyasını yükler.
+     */
+    private Image gorselYukle(String yol) {
+        var kaynak = getClass().getResourceAsStream(yol);
+        if (kaynak != null) {
+            return new Image(kaynak);
+        }
+        return null;
     }
 
     /**
@@ -80,12 +105,15 @@ public class OdaKanvasi extends Canvas {
         gc.setFill(Color.rgb(230, 228, 220));
         gc.fillRect(0, 0, oda.getSutunSayisi() * hucreBoyutu, oda.getSatirSayisi() * hucreBoyutu);
 
-        // Her bir hücreyi tipine göre çiz
+        // Her bir hücreyi tipine göre çiz (engeller hariç, onları ayrıca grup olarak çizeceğiz)
         for (int x = 0; x < oda.getSutunSayisi(); x++) {
             for (int y = 0; y < oda.getSatirSayisi(); y++) {
                 hucreyiCiz(gc, oda, x, y);
             }
         }
+
+        // Engel gruplarını (mobilyaları) tespit edip üstlerine görsel çiz
+        mobilyaGorselleriniCiz(gc, oda);
         
         // Yol geçmişi, koordinat çizgileri ve en son robotu çiziyoruz (üst üste binme sırası)
         yoluCiz(gc, robot);
@@ -106,8 +134,8 @@ public class OdaKanvasi extends Canvas {
 
         switch (hucre.getTip()) {
             case ENGEL -> {
-                // Üstten görünüm mobilya çizimi (koltuk/kanepe tarzı)
-                engeliCiz(gc, oda, x, y, px, py);
+                // Engel hücreleri mobilyaGorselleriniCiz() ile çiziliyor,
+                // burada sadece alt zemin rengini veriyoruz
             }
             case SARJ_ISTASYONU -> {
                 // Şarj istasyonu sarı renkte ve ortasında şimşek simgesi var
@@ -136,86 +164,85 @@ public class OdaKanvasi extends Canvas {
     }
 
     /**
-     * Üstten görünüm mobilya çizimi (koltuk/kanepe stili).
-     * Komşu engel hücrelerine bakarak açıkta kalan kenarlara kolçak/sırtlık,
-     * iç alana ise yumuşak minder dokusu çizer.
+     * Odadaki tüm engel hücrelerini BFS ile gruplayıp, her grubun üstüne
+     * uygun mobilya görselini çizer.
      */
-    private void engeliCiz(GraphicsContext gc, Oda oda, int x, int y, double px, double py) {
-        double b = hucreBoyutu;
+    private void mobilyaGorselleriniCiz(GraphicsContext gc, Oda oda) {
+        int sutunlar = oda.getSutunSayisi();
+        int satirlar = oda.getSatirSayisi();
+        boolean[][] ziyaretEdildi = new boolean[sutunlar][satirlar];
 
-        // Komşu hücrelerde de engel var mı kontrol et (mobilyanın devamı mı?)
-        boolean ustKomsu = komsudaEngelVarMi(oda, x, y - 1);
-        boolean altKomsu = komsudaEngelVarMi(oda, x, y + 1);
-        boolean solKomsu = komsudaEngelVarMi(oda, x - 1, y);
-        boolean sagKomsu = komsudaEngelVarMi(oda, x + 1, y);
+        for (int x = 0; x < sutunlar; x++) {
+            for (int y = 0; y < satirlar; y++) {
+                Hucre hucre = oda.getHucre(x, y);
+                if (hucre != null && hucre.engelMi() && !ziyaretEdildi[x][y]) {
+                    // BFS ile bu engelin bağlı olduğu tüm hücreleri bul
+                    List<int[]> grup = new ArrayList<>();
+                    Queue<int[]> kuyruk = new LinkedList<>();
+                    kuyruk.add(new int[]{x, y});
+                    ziyaretEdildi[x][y] = true;
 
-        // Kolçak/sırtlık kalınlığı (açıkta kalan kenarlarda bu kadar çıkıntı yapacak)
-        double kenarKalinligi = b * 0.18;
+                    int minX = x, maxX = x, minY = y, maxY = y;
 
-        // 1) Mobilyanın alt zemin katmanı (koyu kahverengi deri taban)
-        gc.setFill(Color.rgb(75, 50, 28));
-        gc.fillRoundRect(px + 1, py + 1, b - 2, b - 2, 4, 4);
+                    while (!kuyruk.isEmpty()) {
+                        int[] mevcut = kuyruk.poll();
+                        grup.add(mevcut);
+                        minX = Math.min(minX, mevcut[0]);
+                        maxX = Math.max(maxX, mevcut[0]);
+                        minY = Math.min(minY, mevcut[1]);
+                        maxY = Math.max(maxY, mevcut[1]);
 
-        // 2) Kolçak/sırtlık çerçevesi (açıkta kalan kenarlarda koyu deri şerit çiziyoruz)
-        gc.setFill(Color.rgb(95, 60, 30));
+                        int[][] yonler = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+                        for (int[] yon : yonler) {
+                            int nx = mevcut[0] + yon[0];
+                            int ny = mevcut[1] + yon[1];
+                            if (oda.sinirlarIcindeMi(nx, ny) && !ziyaretEdildi[nx][ny]) {
+                                Hucre komsu = oda.getHucre(nx, ny);
+                                if (komsu != null && komsu.engelMi()) {
+                                    ziyaretEdildi[nx][ny] = true;
+                                    kuyruk.add(new int[]{nx, ny});
+                                }
+                            }
+                        }
+                    }
 
-        if (!ustKomsu) {
-            // Üst kenar açıkta = sırtlık
-            gc.fillRoundRect(px + 2, py + 2, b - 4, kenarKalinligi, 5, 5);
+                    // Grubun sınır kutusunu hesapla (bounding box)
+                    double px = minX * hucreBoyutu;
+                    double py = minY * hucreBoyutu;
+                    double genislik = (maxX - minX + 1) * hucreBoyutu;
+                    double yukseklik = (maxY - minY + 1) * hucreBoyutu;
+                    int hucreSayisi = grup.size();
+
+                    // Grubun boyutuna göre uygun mobilya görselini seç
+                    Image gorsel = mobilyaGorseliSec(hucreSayisi, genislik, yukseklik);
+
+                    if (gorsel != null) {
+                        // Görseli engel grubunun bounding box'ına sığdırarak çiz
+                        gc.drawImage(gorsel, px, py, genislik, yukseklik);
+                    }
+                }
+            }
         }
-        if (!altKomsu) {
-            // Alt kenar açıkta = ön kenar
-            gc.fillRoundRect(px + 2, py + b - kenarKalinligi - 2, b - 4, kenarKalinligi, 5, 5);
-        }
-        if (!solKomsu) {
-            // Sol kenar açıkta = sol kolçak
-            gc.fillRoundRect(px + 2, py + 2, kenarKalinligi, b - 4, 5, 5);
-        }
-        if (!sagKomsu) {
-            // Sağ kenar açıkta = sağ kolçak
-            gc.fillRoundRect(px + b - kenarKalinligi - 2, py + 2, kenarKalinligi, b - 4, 5, 5);
-        }
-
-        // 3) İç minder alanını hesapla (kolçakların bittiği yerden başlıyor)
-        double minderSol   = px + (solKomsu ? 2 : kenarKalinligi + 3);
-        double minderUst   = py + (ustKomsu ? 2 : kenarKalinligi + 3);
-        double minderSag   = px + b - (sagKomsu ? 2 : kenarKalinligi + 3);
-        double minderAlt   = py + b - (altKomsu ? 2 : kenarKalinligi + 3);
-        double minderGenislik = minderSag - minderSol;
-        double minderYukseklik = minderAlt - minderUst;
-
-        if (minderGenislik > 2 && minderYukseklik > 2) {
-            // Minder ana rengi (sıcak kahverengi deri)
-            gc.setFill(Color.rgb(145, 95, 55));
-            gc.fillRoundRect(minderSol, minderUst, minderGenislik, minderYukseklik, 6, 6);
-
-            // Minder üzerindeki ışık yansıması (parlaklık efekti)
-            gc.setFill(Color.rgb(170, 120, 75, 0.5));
-            gc.fillRoundRect(minderSol + 2, minderUst + 2,
-                    minderGenislik * 0.5, minderYukseklik * 0.4, 4, 4);
-
-            // Minder dikişleri (yatay ve dikey ince çizgiler)
-            gc.setStroke(Color.rgb(120, 78, 42, 0.4));
-            gc.setLineWidth(0.6);
-            double dikisOrta = minderSol + minderGenislik / 2.0;
-            gc.strokeLine(dikisOrta, minderUst + 3, dikisOrta, minderAlt - 3);
-            double dikisDikey = minderUst + minderYukseklik / 2.0;
-            gc.strokeLine(minderSol + 3, dikisDikey, minderSag - 3, dikisDikey);
-        }
-
-        // 4) Mobilyanın dış kenar gölgesi (3D derinlik hissi)
-        gc.setStroke(Color.rgb(40, 25, 10, 0.5));
-        gc.setLineWidth(1.2);
-        gc.strokeRoundRect(px + 1.5, py + 1.5, b - 3, b - 3, 4, 4);
     }
 
     /**
-     * Belirtilen koordinattaki hücre engel mi diye kontrol eder.
+     * Engel grubunun boyutuna ve hücre sayısına göre hangi mobilya görselinin
+     * kullanılacağını belirler.
      */
-    private boolean komsudaEngelVarMi(Oda oda, int x, int y) {
-        if (!oda.sinirlarIcindeMi(x, y)) return false;
-        Hucre komsu = oda.getHucre(x, y);
-        return komsu != null && komsu.engelMi();
+    private Image mobilyaGorseliSec(int hucreSayisi, double genislik, double yukseklik) {
+        // Büyük grup (5+ hücre) = kanepe görseli
+        if (hucreSayisi >= 5 && kanepGorseli != null) {
+            return kanepGorseli;
+        }
+        // Orta grup (3-4 hücre) = deri koltuk görseli
+        if (hucreSayisi >= 3 && deriKoltukGorseli != null) {
+            return deriKoltukGorseli;
+        }
+        // Küçük grup (1-2 hücre) = tekli koltuk görseli
+        if (tekliKoltukGorseli != null) {
+            return tekliKoltukGorseli;
+        }
+        return null;
     }
 
     /**
