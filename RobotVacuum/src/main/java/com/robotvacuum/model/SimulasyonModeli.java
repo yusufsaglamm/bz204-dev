@@ -101,7 +101,9 @@ public class SimulasyonModeli {
 
         planlananYol.clear();
 
-        oda.temizligiSifirla();
+        // Odayı tamamen sıfırla: sonradan eklenen mobilyalar ve kirler de temizlenir.
+        // (Çağıran kod hemen ardından varsayılan oda planını yeniden kurar.)
+        oda.sifirla();
         robot.sifirla(oda.getSarjIstasyonuX(), oda.getSarjIstasyonuY());
         ulasilamayanAlanOzelligi.set(0);
         durumOzelligi.set("Sıfırlandı");
