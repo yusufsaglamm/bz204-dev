@@ -65,6 +65,12 @@ public class SimulasyonKontroloru {
     }
 
     public void istasyonaDon() {
+        // Simülasyon çalışmıyorken/duraklatılmışken model işlemi sessizce reddeder.
+        // Kullanıcıya neden çalışmadığını net bir durum mesajıyla bildiriyoruz.
+        if (!model.calisiyorMu() || model.duraklatildiMi()) {
+            model.durumOzelligi().set("Önce simülasyonu başlatın");
+            return;
+        }
         model.istasyonaDon();
     }
 
@@ -84,6 +90,14 @@ public class SimulasyonKontroloru {
      */
     public void engelEklemeModu() {
         duzenlemeModu = (duzenlemeModu != null && duzenlemeModu.equals("engel")) ? null : "engel";
+    }
+
+    /**
+     * Arayüzün (View) aktif düzenleme modunu öğrenip buton/rozet geri bildirimi
+     * yapabilmesi için modu döndürür ("kir", "engel" veya null).
+     */
+    public String getDuzenlemeModu() {
+        return duzenlemeModu;
     }
 
     public void kirTipiSec(KirTipi tip) {
@@ -148,18 +162,32 @@ public class SimulasyonKontroloru {
         Oda oda = model.getOda();
         if (!oda.sinirlarIcindeMi(sutun, satir)) return;
 
+        Hucre hucre = oda.getHucre(sutun, satir);
+
         if ("kir".equals(duzenlemeModu)) {
+            // Engel veya istasyon üzerine kir eklenemez; kullanıcıya kısa bilgi verelim
+            if (hucre != null && (hucre.engelMi() || hucre.sarjIstasyonuMu())) {
+                model.durumOzelligi().set("Buraya kir eklenemez");
+                return;
+            }
             oda.kirEkle(sutun, satir, model.getSecilenKirTipi());
             gorunum.getOdaKanvasi().yenidenCiz();
         } else if ("engel".equals(duzenlemeModu)) {
-            Hucre hucre = oda.getHucre(sutun, satir);
             if (hucre.engelMi()) {
                 oda.engeliKaldir(sutun, satir);
             } else {
+                // Robotun bulunduğu hücreye mobilya koymaya izin vermiyoruz
+                if (model.getRobot().getX() == sutun && model.getRobot().getY() == satir) {
+                    model.durumOzelligi().set("Robotun üzerine mobilya konamaz");
+                    return;
+                }
                 com.robotvacuum.model.MobilyaTipi tip = gorunum.getSecilenMobilyaTipi();
                 if (tip != null) {
                     boolean yatay = (tip == com.robotvacuum.model.MobilyaTipi.YATAY_KANEPE);
-                    oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(tip, sutun, satir, yatay));
+                    boolean eklendi = oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(tip, sutun, satir, yatay));
+                    if (!eklendi) {
+                        model.durumOzelligi().set("Mobilya buraya sığmıyor");
+                    }
                 } else {
                     // Fallback for safe mode
                     oda.engelKoy(sutun, satir);

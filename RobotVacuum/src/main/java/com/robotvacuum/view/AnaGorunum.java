@@ -42,7 +42,10 @@ public class AnaGorunum {
     private Slider pilAyarKaydirici;
 
     // Alt durum çubuğundaki (Status Bar) etiketler
-    private Label lblToplamAlan, lblTemizlenenAlan, lblKalanAlan, lblGecenSure, lblToplananToz, lblDurumMesaji;
+    private Label lblToplamAlan, lblTemizlenenAlan, lblKalanAlan, lblKirliAlan, lblGecenSure, lblToplananToz, lblDurumMesaji;
+
+    // Olayların yalnızca bir kez bağlanmasını garantiler
+    private boolean olaylarBaglandiMi = false;
 
     public AnaGorunum(SimulasyonModeli model) {
         this.model = model;
@@ -68,7 +71,7 @@ public class AnaGorunum {
         // Sol kısım: Kontrol paneli (kaydırılabilir yapıyoruz ki küçük ekranlarda sığsın)
         ScrollPane solKaydirmaPaneli = new ScrollPane(solPaneliKur());
         solKaydirmaPaneli.setFitToWidth(true);
-        solKaydirmaPaneli.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        solKaydirmaPaneli.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         solKaydirmaPaneli.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         solKaydirmaPaneli.setStyle("-fx-background-color: transparent; -fx-background: #16213e; -fx-padding: 0; -fx-border-width: 0;");
         solKaydirmaPaneli.setMinHeight(0);
@@ -362,6 +365,7 @@ public class AnaGorunum {
         lblToplamAlan = new Label("0 m²");
         lblTemizlenenAlan = new Label("0 m² (0%)");
         lblKalanAlan = new Label("0 m² (0%)");
+        lblKirliAlan = new Label("0 m²");
         lblGecenSure = new Label("00:00");
         lblToplananToz = new Label("0%");
 
@@ -370,11 +374,13 @@ public class AnaGorunum {
                 dikeyAyiriciKur(),
                 istatistikHucresiKur(new Circle(5, Color.web("#22c55e")), "Temizlenen Alan", lblTemizlenenAlan),
                 dikeyAyiriciKur(),
-                istatistikHucresiKur(new Circle(5, Color.web("#d1c0a8")), "Kalan Alan", lblKalanAlan),
+                istatistikHucresiKur(new Circle(5, Color.web("#d1c0a8")), "Gezilmemiş Alan", lblKalanAlan),
+                dikeyAyiriciKur(),
+                istatistikHucresiKur(new Circle(5, Color.web("#ef4444")), "Kirli Alan", lblKirliAlan),
                 dikeyAyiriciKur(),
                 istatistikHucresiKur(simgeOlustur("🕒", "#a855f7"), "Geçen Süre", lblGecenSure),
                 dikeyAyiriciKur(),
-                istatistikHucresiKur(simgeOlustur("🧹", "#f59e0b"), "Toplanan Toz", lblToplananToz)
+                istatistikHucresiKur(simgeOlustur("🧹", "#f59e0b"), "Temizlenen Kir", lblToplananToz)
         );
 
         HBox.setHgrow(icKutu, Priority.ALWAYS);
@@ -454,15 +460,20 @@ public class AnaGorunum {
         lblToplamAlan.setText(toplam + " m²");
         lblTemizlenenAlan.setText(String.format("%d m² (%.0f%%)", temizlenen, toplam > 0 ? (temizlenen * 100.0 / toplam) : 0));
         lblKalanAlan.setText(String.format("%d m² (%.0f%%)", kalan, toplam > 0 ? (kalan * 100.0 / toplam) : 0));
+        lblKirliAlan.setText(model.getOda().getKirliAlanSayisi() + " m²");
     }
 
     /**
      * Düğmelere tıklandığında kontrolcüdeki (Controller) olayları tetikler.
      */
     private void olaylariBagla() {
-        btnBaslat.setOnAction(e -> kontrolor.baslat());
+        // Aynı dinleyicilerin (listener) birden fazla kez bağlanmasını engelliyoruz
+        if (olaylarBaglandiMi) return;
+        olaylarBaglandiMi = true;
+
+        btnBaslat.setOnAction(e -> { kontrolor.baslat(); duzenlemeModuGeriBildirimiGuncelle(); });
         btnDuraklat.setOnAction(e -> kontrolor.duraklat());
-        btnSifirla.setOnAction(e -> kontrolor.sifirla());
+        btnSifirla.setOnAction(e -> { kontrolor.sifirla(); duzenlemeModuGeriBildirimiGuncelle(); });
         btnIstasyonaDon.setOnAction(e -> kontrolor.istasyonaDon());
         btnUlasilamayanKontrol.setOnAction(e -> kontrolor.ulasilamayanAlanBul());
 
@@ -472,14 +483,35 @@ public class AnaGorunum {
             }
         });
 
-        btnKirEkle.setOnAction(e -> kontrolor.kirEklemeModu());
-        btnEngelEkle.setOnAction(e -> kontrolor.engelEklemeModu());
+        btnKirEkle.setOnAction(e -> { kontrolor.kirEklemeModu(); duzenlemeModuGeriBildirimiGuncelle(); });
+        btnEngelEkle.setOnAction(e -> { kontrolor.engelEklemeModu(); duzenlemeModuGeriBildirimiGuncelle(); });
 
         kirGrubu.selectedToggleProperty().addListener((obs, o, n) -> {
             if (n == rbToz) kontrolor.kirTipiSec(KirTipi.TOZ);
             if (n == rbSivi) kontrolor.kirTipiSec(KirTipi.SIVI);
             if (n == rbLeke) kontrolor.kirTipiSec(KirTipi.LEKE);
         });
+
+        // Hız, algoritma, batarya ve kanvas tıklama olaylarını da bağlıyoruz
+        algoritmaBagla();
+    }
+
+    /**
+     * Kir/Mobilya ekleme modlarının arayüzde net görünmesini sağlar:
+     * aktif buton vurgulanır ve üst durum rozeti güncel modu yazar.
+     */
+    private void duzenlemeModuGeriBildirimiGuncelle() {
+        String mod = kontrolor.getDuzenlemeModu();
+        btnKirEkle.getStyleClass().remove("btn-active");
+        btnEngelEkle.getStyleClass().remove("btn-active");
+
+        if ("kir".equals(mod)) {
+            btnKirEkle.getStyleClass().add("btn-active");
+            lblDurumMesaji.setText("Kir ekleme modu");
+        } else if ("engel".equals(mod)) {
+            btnEngelEkle.getStyleClass().add("btn-active");
+            lblDurumMesaji.setText("Mobilya ekleme modu");
+        }
     }
 
     public KirTipi getSecilenKirTipi() {

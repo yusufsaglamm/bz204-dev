@@ -16,25 +16,30 @@ RobotVacuum/
         ├── java/
         │   ├── module-info.java
         │   └── com/robotvacuum/
-        │       ├── MainApp.java              ← Uygulama giriş noktası
+        │       ├── AnaUygulama.java               ← Uygulama giriş noktası
         │       ├── model/
-        │       │   ├── Cell.java             ← Izgara hücresi modeli
-        │       │   ├── CleaningAlgorithm.java← Algoritma enum
-        │       │   ├── Direction.java        ← Yön enum
-        │       │   ├── DirtType.java         ← Kir türü enum
-        │       │   ├── Robot.java            ← Robot modeli
-        │       │   ├── Room.java             ← Oda/ızgara modeli
-        │       │   └── SimulationModel.java  ← Ana model
+        │       │   ├── Hucre.java                 ← Izgara hücresi modeli
+        │       │   ├── TemizlikAlgoritmasi.java   ← Algoritma enum
+        │       │   ├── Yon.java                   ← Yön enum
+        │       │   ├── KirTipi.java               ← Kir türü enum
+        │       │   ├── Mobilya.java               ← Çok hücreli mobilya/engel
+        │       │   ├── MobilyaTipi.java           ← Mobilya türü enum
+        │       │   ├── OdaTipi.java               ← Oda planı enum (Salon/Mutfak/Yatak Odası)
+        │       │   ├── Robot.java                 ← Robot modeli
+        │       │   ├── Oda.java                   ← Oda/ızgara modeli
+        │       │   └── SimulasyonModeli.java      ← Ana model
         │       ├── view/
-        │       │   ├── MainView.java         ← Ana arayüz
-        │       │   └── RoomCanvas.java       ← Oda çizim canvas
+        │       │   ├── AnaGorunum.java            ← Ana arayüz
+        │       │   └── OdaKanvasi.java            ← Oda çizim canvas
         │       ├── controller/
-        │       │   └── SimulationController.java ← Kontrolcü
+        │       │   └── SimulasyonKontroloru.java  ← Kontrolcü
         │       └── util/
-        │           └── BFSPathFinder.java    ← BFS yol bulma
+        │           ├── BFSYolBulucu.java          ← BFS yol bulma
+        │           └── SesYoneticisi.java         ← Ses efektleri (procedural)
         └── resources/
             └── com/robotvacuum/
-                └── style.css                ← CSS stilleri
+                ├── style.css                      ← CSS stilleri
+                └── images/                         ← Mobilya görselleri (PNG)
 ```
 
 ---
@@ -64,7 +69,7 @@ RobotVacuum/
 
 **Yöntem B - Run Configuration ile:**
 1. `Run → Edit Configurations → + → Application`
-2. Main class: `com.robotvacuum.MainApp`
+2. Main class: `com.robotvacuum.AnaUygulama`
 3. VM options ekleyin:
    ```
    --module-path /path/to/javafx-sdk/lib
@@ -122,26 +127,27 @@ RobotVacuum/
 ## Sınıf Diyagramı (Class Diagram)
 
 ```
-MainApp
-  └── creates → SimulationModel, MainView, SimulationController
+AnaUygulama
+  └── creates → SimulasyonModeli, AnaGorunum, SimulasyonKontroloru
 
-SimulationModel (Model)
-  ├── Room (20x14 Cell grid)
-  │     └── Cell (type, dirtType, cleanState)
-  ├── Robot (position, direction, battery)
-  └── uses → BFSPathFinder, CleaningAlgorithm
+SimulasyonModeli (Model)
+  ├── Oda (20x14 Hucre grid)
+  │     ├── Hucre (tip, kirTipi, temizlendiMi)
+  │     └── Mobilya (çok hücreli engel)
+  ├── Robot (konum, yön, batarya)
+  └── uses → BFSYolBulucu, TemizlikAlgoritmasi, SesYoneticisi
 
-MainView (View)
-  ├── RoomCanvas (Canvas rendering)
-  └── binds → SimulationModel properties
+AnaGorunum (View)
+  ├── OdaKanvasi (Canvas çizimi)
+  └── binds → SimulasyonModeli properties
 
-SimulationController (Controller)
+SimulasyonKontroloru (Controller)
   ├── AnimationTimer (game loop)
-  ├── handles → user events
-  └── calls → SimulationModel, MainView
+  ├── handles → kullanıcı olayları
+  └── calls → SimulasyonModeli, AnaGorunum
 
-Enums: DirtType, Direction, CleaningAlgorithm, Cell.CellType
-Util: BFSPathFinder (static method)
+Enums: KirTipi, Yon, TemizlikAlgoritmasi, MobilyaTipi, OdaTipi, Hucre.HucreTipi
+Util: BFSYolBulucu (statik metot), SesYoneticisi (ses efektleri)
 ```
 
 ---

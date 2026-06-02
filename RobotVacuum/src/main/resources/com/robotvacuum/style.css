@@ -108,6 +108,20 @@
     -fx-background-color: #3a4a68;
 }
 
+/* Kir/Mobilya ekleme modu aktifken butona uygulanan vurgulu stil */
+.btn-active {
+    -fx-background-color: #f59e0b;
+    -fx-text-fill: #1a1b2e;
+    -fx-font-weight: bold;
+    -fx-border-color: #ffd27f;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+}
+
+.btn-active:hover {
+    -fx-background-color: #ffb733;
+}
+
 .btn-start {
     -fx-background-color: #1f6a40;
     -fx-text-fill: #b0ffd0;

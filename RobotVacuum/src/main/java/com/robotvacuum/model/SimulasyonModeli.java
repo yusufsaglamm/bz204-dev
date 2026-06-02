@@ -110,7 +110,14 @@ public class SimulasyonModeli {
 
     public void istasyonaDon() {
         if (!calisiyor || duraklatildi) return;
+        boolean istasyondaMi = robot.getX() == oda.getSarjIstasyonuX() && robot.getY() == oda.getSarjIstasyonuY();
         istasyonaYolPlanla();
+        // İstasyonda değilsek ve BFS boş yol döndürdüyse hedefe ulaşılamıyordur;
+        // sessizce başarısız olmak yerine kullanıcıya durumu bildiriyoruz.
+        if (!istasyondaMi && planlananYol.isEmpty()) {
+            durumOzelligi.set("İstasyona yol bulunamadı");
+            return;
+        }
         robot.setIstasyonaDonuyor(true);
         durumOzelligi.set("İstasyona Dönüyor");
     }
@@ -262,8 +269,9 @@ public class SimulasyonModeli {
 
         int[] sonraki = planlananYol.poll();
         robot.bataryayiTuket(Robot.HAREKET_BATARYA_MALIYETI);
-        robot.setKonum(sonraki[0], sonraki[1]);
+        // Yönü konum değişmeden önce hesaplıyoruz; aksi halde eski/yeni konum aynı olur ve yön güncellenmez.
         hareketeGoreYonuGuncelle(sonraki[0], sonraki[1]);
+        robot.setKonum(sonraki[0], sonraki[1]);
         toplamHareket++;
     }
 
