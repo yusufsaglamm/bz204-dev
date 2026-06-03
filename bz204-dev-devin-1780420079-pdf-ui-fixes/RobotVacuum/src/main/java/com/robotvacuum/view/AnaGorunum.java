@@ -12,6 +12,9 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.util.StringConverter;
 
 /**
  * Simülasyonun kullanıcı arayüzünü (UI) oluşturan View sınıfı.
@@ -37,8 +40,10 @@ public class AnaGorunum {
     private RadioButton rbRastgele, rbSpiral, rbDuvarTakip;
     private Label lblKonum, lblYon, lblBatarya;
     private ProgressBar pilGostergesi;
-    private Button btnKirEkle, btnEngelEkle, btnBaslat, btnDuraklat, btnSifirla, btnIstasyonaDon;
+    private Button btnKirEkle, btnEngelEkle, btnMobilyaSil, btnBaslat, btnDuraklat, btnSifirla, btnIstasyonaDon;
     private Slider pilAyarKaydirici;
+    private ComboBox<MobilyaTipi> cbMobilyaTipi;
+    private ImageView ivMobilyaOnizleme;
 
     // Alt durum çubuğundaki (Status Bar) etiketler
     private Label lblToplamAlan, lblTemizlenenAlan, lblKalanAlan, lblKirliAlan, lblGecenSure, lblToplananToz, lblDurumMesaji;
@@ -191,15 +196,42 @@ public class AnaGorunum {
         Label baslik = new Label("🪑 Mobilya Ekle");
         baslik.getStyleClass().add("section-header-small");
 
+        cbMobilyaTipi = new ComboBox<>();
+        cbMobilyaTipi.getItems().addAll(MobilyaTipi.values());
+        cbMobilyaTipi.setValue(MobilyaTipi.KANEPE);
+        cbMobilyaTipi.setMaxWidth(Double.MAX_VALUE);
+        cbMobilyaTipi.setConverter(new StringConverter<MobilyaTipi>() {
+            @Override
+            public String toString(MobilyaTipi tip) {
+                return tip == null ? "" : tip.getEkranAdi();
+            }
+            @Override
+            public MobilyaTipi fromString(String string) {
+                return null;
+            }
+        });
+
+        ivMobilyaOnizleme = new ImageView();
+        ivMobilyaOnizleme.setPreserveRatio(true);
+        ivMobilyaOnizleme.setFitHeight(60);
+        
+        StackPane onizlemeKutusu = new StackPane(ivMobilyaOnizleme);
+        onizlemeKutusu.setStyle("-fx-background-color: #2a3143; -fx-background-radius: 8; -fx-padding: 5;");
+        onizlemeKutusu.setMinHeight(70);
+
         btnMobilyaYonu = new Button("Yön: Güney");
         btnMobilyaYonu.setMaxWidth(Double.MAX_VALUE);
         // Olayları bağlarken (olaylariBagla içinde) bu butonun yönünü değiştireceğiz.
 
-        btnEngelEkle = new Button("➕ Kanepe Ekle");
+        btnEngelEkle = new Button("➕ Mobilya Ekle");
         btnEngelEkle.getStyleClass().add("btn-action-secondary");
         btnEngelEkle.setMaxWidth(Double.MAX_VALUE);
+
+        btnMobilyaSil = new Button("🗑️ Mobilya Sil");
+        btnMobilyaSil.getStyleClass().add("btn-action-secondary");
+        btnMobilyaSil.setMaxWidth(Double.MAX_VALUE);
         
-        kutu.getChildren().addAll(baslik, btnMobilyaYonu, btnEngelEkle);
+        kutu.getChildren().addAll(baslik, cbMobilyaTipi, onizlemeKutusu, btnMobilyaYonu, btnEngelEkle, btnMobilyaSil);
         return kutu;
     }
 
@@ -469,12 +501,39 @@ public class AnaGorunum {
             }
         });
 
-        btnKirEkle.setOnAction(e -> { kontrolor.kirEklemeModu(); duzenlemeModuGeriBildirimiGuncelle(); });
-        btnEngelEkle.setOnAction(e -> { kontrolor.engelEklemeModu(); duzenlemeModuGeriBildirimiGuncelle(); });
-        
+        btnKirEkle.setOnAction(e -> {
+            kontrolor.kirEklemeModu();
+            duzenlemeModuGeriBildirimiGuncelle();
+        });
+
+        // Mobilya ekleme modu değiştirme
+        btnEngelEkle.setOnAction(e -> {
+            kontrolor.engelEklemeModu();
+            duzenlemeModuGeriBildirimiGuncelle();
+        });
+
+        // Mobilya silme modu
+        btnMobilyaSil.setOnAction(e -> {
+            kontrolor.engelSilmeModu();
+            duzenlemeModuGeriBildirimiGuncelle();
+        });
+
+        // Mobilya Tipi combobox değişimi
+        cbMobilyaTipi.setOnAction(e -> onizlemeGorseliniGuncelle());
+
+        // Yön değiştirme
         btnMobilyaYonu.setOnAction(e -> {
-            secilenMobilyaYonu = secilenMobilyaYonu.sagaDon();
+            Yon[] yonler = Yon.values();
+            int mevcutSira = secilenMobilyaYonu.ordinal();
+            int sonrakiSira = (mevcutSira + 1) % yonler.length;
+            secilenMobilyaYonu = yonler[sonrakiSira];
             btnMobilyaYonu.setText("Yön: " + secilenMobilyaYonu.getEkranAdi());
+            onizlemeGorseliniGuncelle();
+            
+            // Eğer mobilya ekleme modundaysa, kanvastaki silüet yönünü değiştirmek için yeniden çiz
+            if ("engel_ekle".equals(kontrolor.getDuzenlemeModu())) {
+                odaKanvasi.yenidenCiz();
+            }
         });
 
         kirGrubu.selectedToggleProperty().addListener((obs, o, n) -> {
@@ -495,13 +554,35 @@ public class AnaGorunum {
         String mod = kontrolor.getDuzenlemeModu();
         btnKirEkle.getStyleClass().remove("btn-active");
         btnEngelEkle.getStyleClass().remove("btn-active");
+        btnMobilyaSil.getStyleClass().remove("btn-active");
 
         if ("kir".equals(mod)) {
+            lblDurumMesaji.setText("Düzenleme: Kir Ekle");
             btnKirEkle.getStyleClass().add("btn-active");
-            lblDurumMesaji.setText("Kir ekleme modu");
-        } else if ("engel".equals(mod)) {
+        } else if ("engel_ekle".equals(mod)) {
+            lblDurumMesaji.setText("Düzenleme: Mobilya Ekle");
             btnEngelEkle.getStyleClass().add("btn-active");
-            lblDurumMesaji.setText("Mobilya ekleme modu");
+        } else if ("engel_sil".equals(mod)) {
+            lblDurumMesaji.setText("Düzenleme: Mobilya Sil");
+            btnMobilyaSil.getStyleClass().add("btn-active");
+        } else {
+            lblDurumMesaji.setText("Düzenleme: Kapalı");
+        }
+    }
+
+    private void onizlemeGorseliniGuncelle() {
+        MobilyaTipi tip = cbMobilyaTipi.getValue();
+        if (tip != null && odaKanvasi != null) {
+            Image img = odaKanvasi.getMobilyaGorseli(tip);
+            ivMobilyaOnizleme.setImage(img);
+            
+            // Yöne göre rotasyon
+            switch (secilenMobilyaYonu) {
+                case KUZEY -> ivMobilyaOnizleme.setRotate(0);
+                case DOGU -> ivMobilyaOnizleme.setRotate(90);
+                case GUNEY -> ivMobilyaOnizleme.setRotate(180);
+                case BATI -> ivMobilyaOnizleme.setRotate(270);
+            }
         }
     }
 
@@ -511,8 +592,8 @@ public class AnaGorunum {
         return KirTipi.TOZ;
     }
 
-    public com.robotvacuum.model.MobilyaTipi getSecilenMobilyaTipi() {
-        return com.robotvacuum.model.MobilyaTipi.KANEPE;
+    public MobilyaTipi getSecilenMobilyaTipi() {
+        return cbMobilyaTipi.getValue();
     }
     
     public Yon getSecilenMobilyaYonu() {
@@ -534,6 +615,18 @@ public class AnaGorunum {
             int sutun = odaKanvasi.pikseldenSutuna(e.getX());
             int satir = odaKanvasi.pikseldenSatira(e.getY());
             kontrolor.tuvaleTiklandi(sutun, satir);
+        });
+
+        // Kanvas üzerinde fare gezdirildiğinde silüet için koordinatları güncelliyoruz
+        odaKanvasi.setOnMouseMoved(e -> {
+            int sutun = odaKanvasi.pikseldenSutuna(e.getX());
+            int satir = odaKanvasi.pikseldenSatira(e.getY());
+            kontrolor.yeniFarePozisyonu(sutun, satir);
+        });
+
+        // Fare kanvastan çıkınca silüeti gizlemek için
+        odaKanvasi.setOnMouseExited(e -> {
+            kontrolor.yeniFarePozisyonu(-1, -1);
         });
     }
 

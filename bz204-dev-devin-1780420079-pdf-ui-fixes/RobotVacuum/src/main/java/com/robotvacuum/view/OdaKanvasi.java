@@ -25,10 +25,8 @@ public class OdaKanvasi extends Canvas {
     private double hucreBoyutu = 40;
     
     // Çizim renk paletimiz
-    private static final Color RENK_ZEMIN = Color.rgb(245, 245, 240);
-    private static final Color RENK_ZEMIN_KOYU = Color.rgb(238, 238, 230);
     private static final Color RENK_SARJ_ISTASYONU = Color.rgb(255, 200, 50);
-    private static final Color RENK_IZGARA = Color.rgb(200, 200, 195);
+    private static final Color RENK_IZGARA = Color.rgb(200, 200, 195, 0.4);
     private static final Color RENK_TEMIZLENMIS = Color.rgb(200, 230, 255, 0.45);
     private static final Color RENK_YOL_IZI = Color.rgb(100, 160, 220, 0.55);
     private static final Color RENK_TOZ = Color.rgb(180, 150, 100);
@@ -45,6 +43,13 @@ public class OdaKanvasi extends Canvas {
 
     // Üstten görünüm mobilya görselleri
     private final Image kanepGorseli;
+    private final Image tvUnitesiGorseli;
+    private final Image sehpaGorseli;
+    private final Image yemekMasasiGorseli;
+    private final Image dolapGorseli;
+    private final Image komodinGorseli;
+    private final Image tezgahGorseli;
+    private final Image yatakGorseli;
 
     public OdaKanvasi(SimulasyonModeli model) {
         // İlk açılışta varsayılan boyutlarla oluşturuyoruz
@@ -53,6 +58,42 @@ public class OdaKanvasi extends Canvas {
 
         // Mobilya görsellerini resources klasöründen yüklüyoruz
         kanepGorseli = gorselYukle("/com/robotvacuum/images/kanepe.png");
+        tvUnitesiGorseli = gorselYukle("/com/robotvacuum/images/tv_unitesi.png");
+        sehpaGorseli = gorselYukle("/com/robotvacuum/images/sehpa.png");
+        yemekMasasiGorseli = gorselYukle("/com/robotvacuum/images/yemek_masasi.png");
+        dolapGorseli = gorselYukle("/com/robotvacuum/images/dolap.png");
+        komodinGorseli = gorselYukle("/com/robotvacuum/images/komodin.png");
+        tezgahGorseli = gorselYukle("/com/robotvacuum/images/tezgah.png");
+        yatakGorseli = gorselYukle("/com/robotvacuum/images/yatak.png");
+
+        // Kir ve Efekt görselleri
+        tozGorseli = gorselYukle("/com/robotvacuum/images/toz.png");
+        siviGorseli = gorselYukle("/com/robotvacuum/images/sivi.png");
+        lekeGorseli = gorselYukle("/com/robotvacuum/images/leke.png");
+        temizlemeEfektiGorseli = gorselYukle("/com/robotvacuum/images/temizleme_efekti.png");
+    }
+
+    private Image tozGorseli, siviGorseli, lekeGorseli, temizlemeEfektiGorseli;
+
+    // Fare silüeti (hover) için saklanan koordinatlar
+    private int hoverSutun = -1;
+    private int hoverSatir = -1;
+    private String aktifMod = null;
+    private MobilyaTipi seciliTip = null;
+    private Yon seciliYon = null;
+
+    /**
+     * Farenin kanvas üzerindeki anlık pozisyonunu ayarlar
+     */
+    public void setHoverPozisyonu(int sutun, int satir) {
+        this.hoverSutun = sutun;
+        this.hoverSatir = satir;
+    }
+
+    public void setSiluetVerisi(String mod, MobilyaTipi tip, Yon yon) {
+        this.aktifMod = mod;
+        this.seciliTip = tip;
+        this.seciliYon = yon;
     }
 
     /**
@@ -64,6 +105,23 @@ public class OdaKanvasi extends Canvas {
             return new Image(kaynak);
         }
         return null;
+    }
+
+    /**
+     * İlgili mobilya tipine ait görseli döndürür (Arayüzde önizleme için).
+     */
+    public Image getMobilyaGorseli(MobilyaTipi tip) {
+        if (tip == null) return null;
+        return switch (tip) {
+            case KANEPE -> kanepGorseli;
+            case TV_UNITESI -> tvUnitesiGorseli;
+            case SEHPA -> sehpaGorseli;
+            case YEMEK_MASASI -> yemekMasasiGorseli;
+            case DOLAP -> dolapGorseli;
+            case KOMODIN -> komodinGorseli;
+            case TEZGAH -> tezgahGorseli;
+            case YATAK -> yatakGorseli;
+        };
     }
 
     /**
@@ -97,41 +155,108 @@ public class OdaKanvasi extends Canvas {
         gc.save();
         gc.translate(kaymaX, kaymaY);
 
+        double odaGenislik = oda.getSutunSayisi() * hucreBoyutu;
+        double odaYukseklik = oda.getSatirSayisi() * hucreBoyutu;
+
+        // Oda tipine göre zemin rengini belirle
+        OdaTipi odaTipi = model.getAktifOdaTipi();
+        Color zeminAcik, zeminKoyu, engelRenk;
+        String odaEmoji, odaAdi;
+        switch (odaTipi) {
+            case MUTFAK -> {
+                zeminAcik = Color.rgb(235, 238, 242); // Açık gri karo
+                zeminKoyu = Color.rgb(220, 225, 232);
+                engelRenk = Color.rgb(90, 95, 105);   // Metal/gri tezgah
+                odaEmoji = "🍳"; odaAdi = "Mutfak";
+            }
+            case YATAK_ODASI -> {
+                zeminAcik = Color.rgb(225, 232, 242); // Yumuşak mavi halı
+                zeminKoyu = Color.rgb(215, 222, 235);
+                engelRenk = Color.rgb(120, 90, 65);   // Koyu ahşap dolap
+                odaEmoji = "🛏️"; odaAdi = "Yatak Odası";
+            }
+            default -> { // SALON
+                zeminAcik = Color.rgb(235, 220, 200); // Sıcak bej parke
+                zeminKoyu = Color.rgb(225, 210, 190);
+                engelRenk = Color.rgb(101, 67, 33);   // Ahşap mobilya
+                odaEmoji = "🏠"; odaAdi = "Salon";
+            }
+        }
+
         // Oda alanının ana rengini çizelim
-        gc.setFill(Color.rgb(230, 228, 220));
-        gc.fillRect(0, 0, oda.getSutunSayisi() * hucreBoyutu, oda.getSatirSayisi() * hucreBoyutu);
+        gc.setFill(zeminAcik);
+        gc.fillRect(0, 0, odaGenislik, odaYukseklik);
 
         // Her bir hücreyi tipine göre çiz
         for (int x = 0; x < oda.getSutunSayisi(); x++) {
             for (int y = 0; y < oda.getSatirSayisi(); y++) {
-                hucreyiCiz(gc, oda, x, y);
+                hucreyiCiz(gc, oda, x, y, zeminAcik, zeminKoyu, engelRenk, odaTipi);
             }
         }
         
         // Sabit büyük boyutlu mobilya nesnelerini çiz
         mobilyalariCiz(gc, oda);
         
-        // Yol geçmişi, koordinat çizgileri ve en son robotu çiziyoruz (üst üste binme sırası)
+        // Yol geçmişi, koordinat çizgileri ve en son robotu çiziyoruz
         yoluCiz(gc, robot);
         izgarayiCiz(gc, oda);
+        
+        // Kalın duvar bordürü (oda sınırları)
+        duvarlariCiz(gc, oda);
+        
         koordinatlariYaz(gc, oda);
         robotuCiz(gc, robot);
+        
+        // Farenin bulunduğu hücrede eğer mobilya ekleme modundaysak silüet çizimi yap
+        siluetCiz(gc, oda);
+        
+        // Oda adını sol üst köşeye yazdır
+        odaAdiniYaz(gc, odaEmoji, odaAdi);
         
         gc.restore();
     }
 
     /**
+     * Odanın kenarlarına kalın duvar çizgileri çizer.
+     */
+    private void duvarlariCiz(GraphicsContext gc, Oda oda) {
+        double odaGenislik = oda.getSutunSayisi() * hucreBoyutu;
+        double odaYukseklik = oda.getSatirSayisi() * hucreBoyutu;
+        double kalinlik = 4.0;
+        
+        gc.setStroke(Color.rgb(60, 50, 40));
+        gc.setLineWidth(kalinlik);
+        gc.strokeRect(kalinlik / 2, kalinlik / 2, odaGenislik - kalinlik, odaYukseklik - kalinlik);
+        
+        // İç gölge efekti (duvarların derinlik hissi vermesi için)
+        gc.setStroke(Color.rgb(40, 35, 28, 0.3));
+        gc.setLineWidth(1.5);
+        gc.strokeRect(kalinlik + 1, kalinlik + 1, odaGenislik - kalinlik * 2 - 2, odaYukseklik - kalinlik * 2 - 2);
+    }
+
+    /**
+     * Oda adını ve emojisini kanvasın sol üst köşesine yazar.
+     */
+    private void odaAdiniYaz(GraphicsContext gc, String emoji, String ad) {
+        gc.setFill(Color.rgb(0, 0, 0, 0.45));
+        gc.fillRoundRect(8, 8, 110, 28, 8, 8);
+        gc.setFill(Color.WHITE);
+        gc.setFont(Font.font("Segoe UI", javafx.scene.text.FontWeight.BOLD, 13));
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.fillText(emoji + " " + ad, 16, 27);
+    }
+
+    /**
      * Tek bir hücreyi çizer (boş zemin, engel veya şarj istasyonu)
      */
-    private void hucreyiCiz(GraphicsContext gc, Oda oda, int x, int y) {
+    private void hucreyiCiz(GraphicsContext gc, Oda oda, int x, int y,
+                             Color zeminAcik, Color zeminKoyu, Color engelRenk, OdaTipi odaTipi) {
         Hucre hucre = oda.getHucre(x, y);
         double px = x * hucreBoyutu;
         double py = y * hucreBoyutu;
 
         switch (hucre.getTip()) {
             case ENGEL -> {
-                // Sadece eski tip veya arayüzde mobilya olmayan engeller için fallback (Örn: mutfak tezgahı)
-                // Yeni nesil büyük mobilyalar mobilyalariCiz() metodunda çizilecek.
                 boolean mobilyaMi = false;
                 for (com.robotvacuum.model.Mobilya m : oda.getMobilyalar()) {
                     for (int[] p : m.getKaplananHucreler()) {
@@ -143,12 +268,15 @@ public class OdaKanvasi extends Canvas {
                 }
                 
                 if (!mobilyaMi) {
-                    gc.setFill(Color.rgb(101, 67, 33));
-                    gc.fillRect(px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2);
+                    // Dekoratif engeller odaya özel renkte
+                    gc.setFill(engelRenk);
+                    gc.fillRoundRect(px + 1, py + 1, hucreBoyutu - 2, hucreBoyutu - 2, 4, 4);
+                    // Hafif parlaklık efekti
+                    gc.setFill(Color.rgb(255, 255, 255, 0.12));
+                    gc.fillRect(px + 2, py + 2, hucreBoyutu - 4, (hucreBoyutu - 4) * 0.35);
                 }
             }
             case SARJ_ISTASYONU -> {
-                // Şarj istasyonu sarı renkte ve ortasında şimşek simgesi var
                 gc.setFill(RENK_SARJ_ISTASYONU);
                 gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
                 gc.setFill(Color.WHITE);
@@ -157,17 +285,39 @@ public class OdaKanvasi extends Canvas {
                 gc.fillText("⚡", px + hucreBoyutu / 2.0, py + hucreBoyutu / 2.0 + 6);
             }
             default -> {
-                // Dama tahtası deseni oluşturmak için tek-çift kontrolüyle zemin rengini seçiyoruz
-                gc.setFill((x + y) % 2 == 0 ? RENK_ZEMIN : RENK_ZEMIN_KOYU);
-                gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
+                // Oda tipine göre zemin deseni
+                if (odaTipi == OdaTipi.MUTFAK) {
+                    // Karo fayans deseni
+                    gc.setFill((x + y) % 2 == 0 ? zeminAcik : zeminKoyu);
+                    gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
+                    // Fayans derz çizgileri
+                    gc.setStroke(Color.rgb(200, 205, 215, 0.6));
+                    gc.setLineWidth(0.5);
+                    gc.strokeRect(px + 0.5, py + 0.5, hucreBoyutu - 1, hucreBoyutu - 1);
+                } else if (odaTipi == OdaTipi.YATAK_ODASI) {
+                    // Halı deseni (daha yumuşak geçişler)
+                    gc.setFill((x + y) % 2 == 0 ? zeminAcik : zeminKoyu);
+                    gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
+                } else {
+                    // Parke deseni (salon)
+                    boolean parkeYonu = (y % 2 == 0);
+                    if (parkeYonu) {
+                        gc.setFill(x % 2 == 0 ? zeminAcik : zeminKoyu);
+                    } else {
+                        gc.setFill(x % 2 == 0 ? zeminKoyu : zeminAcik);
+                    }
+                    gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
+                    // Parke çizgi
+                    gc.setStroke(Color.rgb(190, 175, 155, 0.3));
+                    gc.setLineWidth(0.3);
+                    gc.strokeLine(px, py + hucreBoyutu, px + hucreBoyutu, py + hucreBoyutu);
+                }
 
-                // Hücre temizlenmişse mavi yarı saydam bir katman atıyoruz
                 if (hucre.temizlendiMi() && !hucre.kirliMi()) {
                     gc.setFill(RENK_TEMIZLENMIS);
                     gc.fillRect(px, py, hucreBoyutu, hucreBoyutu);
                 }
 
-                // Üzerinde kir varsa kir görselini çizelim
                 if (hucre.kirliMi()) kiriCiz(gc, hucre, px, py);
             }
         }
@@ -182,30 +332,37 @@ public class OdaKanvasi extends Canvas {
             px += 1;
             py += 1;
 
-            if (kanepGorseli != null) {
+            Image cizilecekGorsel = switch (m.getTip()) {
+                case KANEPE -> kanepGorseli;
+                case TV_UNITESI -> tvUnitesiGorseli;
+                case SEHPA -> sehpaGorseli;
+                case YEMEK_MASASI -> yemekMasasiGorseli;
+                case DOLAP -> dolapGorseli;
+                case KOMODIN -> komodinGorseli;
+                case TEZGAH -> tezgahGorseli;
+                case YATAK -> yatakGorseli;
+            };
+
+            if (cizilecekGorsel != null) {
                 gc.save();
                 gc.translate(px + g/2, py + h/2);
                 
                 // Rotations based on orientation.
-                // Assuming kanepe.png image faces North by default.
                 switch (m.getYon()) {
                     case KUZEY:
-                        // No rotation, but we need to ensure the image uses proper w/h
-                        gc.drawImage(kanepGorseli, -g/2, -h/2, g, h);
+                        gc.drawImage(cizilecekGorsel, -g/2, -h/2, g, h);
                         break;
                     case GUNEY:
                         gc.rotate(180);
-                        gc.drawImage(kanepGorseli, -g/2, -h/2, g, h);
+                        gc.drawImage(cizilecekGorsel, -g/2, -h/2, g, h);
                         break;
                     case DOGU:
                         gc.rotate(90);
-                        // Swap dimensions for image drawing when rotated 90/270 because width/height 
-                        // of the canvas transform takes over. Wait, if we rotate 90, the width becomes height
-                        gc.drawImage(kanepGorseli, -h/2, -g/2, h, g);
+                        gc.drawImage(cizilecekGorsel, -h/2, -g/2, h, g);
                         break;
                     case BATI:
                         gc.rotate(-90);
-                        gc.drawImage(kanepGorseli, -h/2, -g/2, h, g);
+                        gc.drawImage(cizilecekGorsel, -h/2, -g/2, h, g);
                         break;
                 }
                 gc.restore();
@@ -213,41 +370,71 @@ public class OdaKanvasi extends Canvas {
         }
     }
 
+    private void siluetCiz(GraphicsContext gc, Oda oda) {
+        if ("engel_ekle".equals(aktifMod) && seciliTip != null && seciliYon != null && hoverSutun >= 0 && hoverSatir >= 0) {
+            com.robotvacuum.model.Mobilya sanalMobilya = new com.robotvacuum.model.Mobilya(seciliTip, hoverSutun, hoverSatir, seciliYon);
+            boolean sigiyorMu = oda.mobilyaEklenebilirMi(sanalMobilya);
+
+            // Mavi (Uygun) veya Kırmızı (Sığmıyor) yarı şeffaf renk belirle
+            Color siluetRengi = sigiyorMu ? Color.rgb(0, 150, 255, 0.4) : Color.rgb(255, 0, 0, 0.4);
+
+            double px = hoverSutun * hucreBoyutu + 1;
+            double py = hoverSatir * hucreBoyutu + 1;
+            double g = (sanalMobilya.getGenislik() * hucreBoyutu) - 2;
+            double h = (sanalMobilya.getYukseklik() * hucreBoyutu) - 2;
+
+            gc.save();
+            gc.translate(px + g/2, py + h/2);
+
+            // Resim yerine doğrudan renkli bir silüet blok çizeceğiz
+            // Rotations
+            switch (seciliYon) {
+                case KUZEY:
+                    break;
+                case GUNEY:
+                    gc.rotate(180);
+                    break;
+                case DOGU:
+                    gc.rotate(90);
+                    // swap dimensions for drawing since we rotated
+                    double tmp = g; g = h; h = tmp;
+                    break;
+                case BATI:
+                    gc.rotate(-90);
+                    double tmp2 = g; g = h; h = tmp2;
+                    break;
+            }
+
+            gc.setFill(siluetRengi);
+            gc.fillRoundRect(-g/2, -h/2, g, h, 8, 8);
+            
+            // Çizgili kenarlık
+            gc.setStroke(siluetRengi.deriveColor(0, 1.0, 1.0, 0.8));
+            gc.setLineWidth(2);
+            gc.setLineDashes(5);
+            gc.strokeRoundRect(-g/2, -h/2, g, h, 8, 8);
+
+            gc.restore();
+        }
+    }
+
     /**
-     * Kirlere özel çizimler ekler (toz noktacıkları, sıvı damlası veya leke)
+     * Kirlere özel PNG görsellerini çizer (sayılar kaldırıldı)
      */
     private void kiriCiz(GraphicsContext gc, Hucre hucre, double px, double py) {
         KirTipi tip = hucre.getKirTipi();
         double cx = px + hucreBoyutu / 2.0;
         double cy = py + hucreBoyutu / 2.0;
 
-        switch (tip) {
-            case TOZ -> {
-                gc.setFill(RENK_TOZ);
-                double[] dotsX = {cx - 8, cx, cx + 8, cx - 5, cx + 5};
-                double[] dotsY = {cy - 5, cy - 8, cy - 5, cy + 5, cy + 5};
-                for (int i = 0; i < dotsX.length; i++) {
-                    gc.fillOval(dotsX[i] - 2.5, dotsY[i] - 2.5, 5, 5);
-                }
-            }
-            case SIVI -> {
-                gc.setFill(RENK_SIVI);
-                gc.fillOval(cx - 10, cy - 6, 20, 12);
-                gc.fillOval(cx - 5, cy - 10, 10, 20);
-            }
-            case LEKE -> {
-                gc.setFill(RENK_LEKE);
-                gc.fillOval(cx - 11, cy - 8, 22, 16);
-            }
-        }
+        Image kirGorseli = switch (tip) {
+            case TOZ -> tozGorseli;
+            case SIVI -> siviGorseli;
+            case LEKE -> lekeGorseli;
+        };
 
-        // Sıvı ve lekelerin üzerinde kalan temizlik adımını sayı olarak yazıyoruz (Toz tek adım olduğu için gerek yok)
-        int kalanAdim = hucre.getKalanTemizlikAdimi();
-        if (kalanAdim > 0 && tip != KirTipi.TOZ) {
-            gc.setFill(Color.WHITE);
-            gc.setFont(Font.font("Arial Bold", 12));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.fillText(String.valueOf(kalanAdim), cx, cy + 4);
+        if (kirGorseli != null) {
+            double boyut = hucreBoyutu * 0.8; // Hücreden biraz küçük olsun
+            gc.drawImage(kirGorseli, cx - boyut/2, cy - boyut/2, boyut, boyut);
         }
     }
 
@@ -314,27 +501,16 @@ public class OdaKanvasi extends Canvas {
         double cy = robot.getY() * hucreBoyutu + hucreBoyutu / 2.0;
         double r = hucreBoyutu * 0.38;
 
-        // Robot o an temizlik yapıyorsa etrafında dönen tatlı bir fırça animasyonu
-        if (model.temizlikYapiliyorMu()) {
+        // Robot o an temizlik yapıyorsa oluşturduğumuz efekti çizelim
+        if (model.isTemizlikDevamEdiyor() && temizlemeEfektiGorseli != null) {
             long zaman = System.currentTimeMillis();
             double aci = (zaman % 1000) / 1000.0 * 360.0;
             gc.save();
             gc.translate(cx, cy);
             gc.rotate(aci);
-            gc.setStroke(Color.rgb(150, 200, 255, 0.7));
-            gc.setLineWidth(3);
-            // Dış fırça halkaları
-            for (int i = 0; i < 4; i++) {
-                gc.strokeArc(-r * 1.3, -r * 1.3, r * 2.6, r * 2.6, i * 90 + 10, 70, javafx.scene.shape.ArcType.OPEN);
-            }
-            // Fırça uçlarındaki toz noktacıkları
-            gc.setFill(Color.rgb(200, 200, 200, 0.9));
-            for (int i = 0; i < 3; i++) {
-                double radyan = Math.toRadians((aci + i * 120) % 360);
-                double px = Math.cos(radyan) * (r * 1.4);
-                double py = Math.sin(radyan) * (r * 1.4);
-                gc.fillOval(px - 2, py - 2, 4, 4);
-            }
+            
+            double efektBoyutu = hucreBoyutu * 1.6;
+            gc.drawImage(temizlemeEfektiGorseli, -efektBoyutu/2, -efektBoyutu/2, efektBoyutu, efektBoyutu);
             gc.restore();
         }
 

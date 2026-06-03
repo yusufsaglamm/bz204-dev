@@ -71,6 +71,20 @@ public class Oda {
     }
 
     /**
+     * Odaya mobilyanın eklenip eklenemeyeceğini test eder.
+     */
+    public boolean mobilyaEklenebilirMi(Mobilya mobilya) {
+        List<int[]> hucreler = mobilya.getKaplananHucreler();
+        for (int[] p : hucreler) {
+            int x = p[0], y = p[1];
+            if (!sinirlarIcindeMi(x, y)) return false;
+            Hucre hucre = izgara[x][y];
+            if (hucre.engelMi() || hucre.sarjIstasyonuMu()) return false;
+        }
+        return true;
+    }
+
+    /**
      * Odaya çok hücreli büyük mobilya bloğu ekler.
      */
     public boolean mobilyaEkle(Mobilya mobilya) {

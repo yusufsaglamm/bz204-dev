@@ -48,6 +48,7 @@ public class SimulasyonModeli {
     private int spiralKenarSayisi = 0;
     private Yon spiralYonu = Yon.DOGU;
     private boolean duvaraYaslaniyorMu = false;
+    private final java.util.Set<String> duvarTakipGecmisi = new java.util.HashSet<>();
 
     private final Queue<int[]> planlananYol = new LinkedList<>();
 
@@ -56,6 +57,7 @@ public class SimulasyonModeli {
 
     private double toplamToplananToz = 0;
     private int toplamHareket = 0;
+    private OdaTipi aktifOdaTipi = OdaTipi.SALON;
 
     public SimulasyonModeli() {
         oda = new Oda();
@@ -397,26 +399,34 @@ public class SimulasyonModeli {
         if (!duvaraYaslaniyorMu) {
             if (ilerleyebilirMi(on)) {
                 hareketiGerceklestir(on);
-                if (!ilerleyebilirMi(sag)) duvaraYaslaniyorMu = true;
+                if (!ilerleyebilirMi(sag)) {
+                    duvaraYaslaniyorMu = true;
+                    duvarTakipGecmisi.clear();
+                }
             } else {
                 robot.setYon(sol);
                 duvaraYaslaniyorMu = true;
+                duvarTakipGecmisi.clear();
             }
             return;
         }
 
-        // Kısır döngü engelleme: Zaten temizlenmiş bir alanda uzun süre duvar takibi yapıyorsa, 
-        // ufak bir ihtimalle (%5) duvardan ayrılıp odanın ortasına veya başka tarafa yönelmesini sağla.
-        if (duvaraYaslaniyorMu && oda.getHucre(robot.getX(), robot.getY()).temizlendiMi() && rastgele.nextInt(100) < 5) {
+        // Eğer adanın/engelin etrafında tam 1 tur attıysak (aynı kareye aynı yönde tekrar geldiysek)
+        // döngüden kurtulup açık alana yönelmeliyiz.
+        String durum = robot.getX() + "," + robot.getY() + "," + robot.getYon();
+        if (!duvarTakipGecmisi.add(durum)) {
             duvaraYaslaniyorMu = false;
-            List<Yon> k = kullanilabilirYonleriGetir();
-            if (k.size() > 1) k.remove(arkam); // Geldiği yere dönmesin
-            if (!k.isEmpty()) {
-                robot.setYon(k.get(rastgele.nextInt(k.size())));
-                hareketiGerceklestir(robot.getYon());
-                return;
+            duvarTakipGecmisi.clear();
+            
+            // Rastgele açık bir yöne dönüp devam edelim
+            java.util.List<Yon> acikYonler = kullanilabilirYonleriGetir();
+            if (acikYonler.size() > 1) acikYonler.remove(arkam);
+            if (!acikYonler.isEmpty()) {
+                robot.setYon(acikYonler.get(rastgele.nextInt(acikYonler.size())));
             }
+            return;
         }
+
 
         if (ilerleyebilirMi(sag)) {
             robot.setYon(sag);
@@ -503,6 +513,8 @@ public class SimulasyonModeli {
     public void setSecilenKirTipi(KirTipi tip) { this.secilenKirTipi = tip; }
     public double getHizCarpani() { return hizCarpani; }
     public void setHizCarpani(double hizCarpani) { this.hizCarpani = hizCarpani; }
+    public OdaTipi getAktifOdaTipi() { return aktifOdaTipi; }
+    public void setAktifOdaTipi(OdaTipi tip) { this.aktifOdaTipi = tip; }
 
     public DoubleProperty bataryaOzelligi() { return bataryaOzelligi; }
     public StringProperty konumOzelligi() { return konumOzelligi; }
@@ -516,7 +528,10 @@ public class SimulasyonModeli {
     public IntegerProperty ulasilamayanAlanOzelligi() { return ulasilamayanAlanOzelligi; }
 
     public int getToplamBaslangicKiri() {
-        // Toplam kir = Odada anlık olarak kalan kirler + Şu ana kadar robotun temizledikleri
         return Math.max(1, oda.getKirliAlanSayisi() + (int) toplamToplananToz);
+    }
+
+    public boolean isTemizlikDevamEdiyor() {
+        return temizlikDevamEdiyor;
     }
 }

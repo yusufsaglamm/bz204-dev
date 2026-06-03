@@ -89,7 +89,14 @@ public class SimulasyonKontroloru {
      * Engel ekleme moduna geçişi ayarlar.
      */
     public void engelEklemeModu() {
-        duzenlemeModu = (duzenlemeModu != null && duzenlemeModu.equals("engel")) ? null : "engel";
+        duzenlemeModu = (duzenlemeModu != null && duzenlemeModu.equals("engel_ekle")) ? null : "engel_ekle";
+    }
+
+    /**
+     * Engel silme moduna geçişi ayarlar.
+     */
+    public void engelSilmeModu() {
+        duzenlemeModu = (duzenlemeModu != null && duzenlemeModu.equals("engel_sil")) ? null : "engel_sil";
     }
 
     /**
@@ -172,29 +179,39 @@ public class SimulasyonKontroloru {
             }
             oda.kirEkle(sutun, satir, model.getSecilenKirTipi());
             gorunum.getOdaKanvasi().yenidenCiz();
-        } else if ("engel".equals(duzenlemeModu)) {
+        } else if ("engel_ekle".equals(duzenlemeModu)) {
+            // Robotun bulunduğu hücreye mobilya koymaya izin vermiyoruz
+            if (model.getRobot().getX() == sutun && model.getRobot().getY() == satir) {
+                model.durumOzelligi().set("Robotun üzerine mobilya konamaz");
+                return;
+            }
+            com.robotvacuum.model.MobilyaTipi tip = gorunum.getSecilenMobilyaTipi();
+            Yon yon = gorunum.getSecilenMobilyaYonu();
+            if (tip != null && yon != null) {
+                boolean eklendi = oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(tip, sutun, satir, yon));
+                if (!eklendi) {
+                    model.durumOzelligi().set("Mobilya buraya sığmıyor");
+                }
+            } else {
+                // Fallback for safe mode
+                oda.engelKoy(sutun, satir);
+            }
+            gorunum.getOdaKanvasi().yenidenCiz();
+        } else if ("engel_sil".equals(duzenlemeModu)) {
             if (hucre.engelMi()) {
                 oda.engeliKaldir(sutun, satir);
-            } else {
-                // Robotun bulunduğu hücreye mobilya koymaya izin vermiyoruz
-                if (model.getRobot().getX() == sutun && model.getRobot().getY() == satir) {
-                    model.durumOzelligi().set("Robotun üzerine mobilya konamaz");
-                    return;
-                }
-                com.robotvacuum.model.MobilyaTipi tip = gorunum.getSecilenMobilyaTipi();
-                Yon yon = gorunum.getSecilenMobilyaYonu();
-                if (tip != null && yon != null) {
-                    boolean eklendi = oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(tip, sutun, satir, yon));
-                    if (!eklendi) {
-                        model.durumOzelligi().set("Mobilya buraya sığmıyor");
-                    }
-                } else {
-                    // Fallback for safe mode
-                    oda.engelKoy(sutun, satir);
-                }
             }
             gorunum.getOdaKanvasi().yenidenCiz();
         }
+    }
+
+    /**
+     * Farenin kanvas üzerindeki anlık pozisyonunu günceller ve silüet çizimi için arayüzü tetikler.
+     */
+    public void yeniFarePozisyonu(int sutun, int satir) {
+        gorunum.getOdaKanvasi().setSiluetVerisi(duzenlemeModu, gorunum.getSecilenMobilyaTipi(), gorunum.getSecilenMobilyaYonu());
+        gorunum.getOdaKanvasi().setHoverPozisyonu(sutun, satir);
+        gorunum.getOdaKanvasi().yenidenCiz();
     }
 
     // =========================================================================
@@ -203,57 +220,73 @@ public class SimulasyonKontroloru {
 
     private void salonOlustur() {
         Oda oda = model.getOda();
+        model.setAktifOdaTipi(OdaTipi.SALON);
         int sx = 0, sy = 12; // Şarj istasyonu sol alt köşede
         oda.setSarjIstasyonu(sx, sy);
         model.getRobot().sifirla(sx, sy);
 
-        // Salon mobilyalarını (büyük bloklar halinde) ekleyelim
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 4, 2, Yon.KUZEY));
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 10, 5, Yon.DOGU));
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 14, 0, Yon.GUNEY));
+        // ── Salon: U-şeklinde oturma grubu ──
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 7, 0, Yon.KUZEY));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 0, 4, Yon.BATI));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 17, 4, Yon.DOGU));
 
-        // İlk kirleri serpiştirelim
-        oda.kirEkle(5, 4, KirTipi.TOZ);
-        oda.kirEkle(8, 6, KirTipi.SIVI);
-        oda.kirEkle(15, 2, KirTipi.LEKE);
+        // Dekoratif mobilyalar
+        // TV ünitesi (alt duvara yakın, ortada, güney duvara yaslı olduğu için KUZEY'e bakar)
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.TV_UNITESI, 7, 13, Yon.KUZEY));
+        // Sehpa (oturma grubunun ortasında, KUZEY'e dönük)
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.SEHPA, 8, 5, Yon.KUZEY));
+
+        // Kirleri oturma grubunun ortasına ve etrafına serpiştirelim
+        oda.kirEkle(4, 8, KirTipi.TOZ);
+        oda.kirEkle(10, 4, KirTipi.SIVI);
+        oda.kirEkle(14, 8, KirTipi.LEKE);
     }
 
     private void mutfakOlustur() {
         Oda oda = model.getOda();
+        model.setAktifOdaTipi(OdaTipi.MUTFAK);
         int sx = 19, sy = 0; // İstasyon sağ üst köşede
         oda.setSarjIstasyonu(sx, sy);
         model.getRobot().sifirla(sx, sy);
 
-        // Mutfak tezgahı (sol üst köşe - kuzeye bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 0, 0, Yon.KUZEY));
-        // Yemek masası / koltuk (ortada - batıya bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 8, 5, Yon.BATI));
-        // Tezgah karşısı kanepe (sağ alt - güneye bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 14, 8, Yon.GUNEY));
+        // ── Mutfak: Tezgah ve yemek köşesi ──
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 1, 0, Yon.KUZEY));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 0, 8, Yon.BATI));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 14, 12, Yon.GUNEY));
 
-        // Mutfak kirleri (daha çok sıvı dökülür mutfakta)
-        oda.kirEkle(2, 4, KirTipi.SIVI);
-        oda.kirEkle(5, 7, KirTipi.SIVI);
-        oda.kirEkle(13, 10, KirTipi.LEKE);
-        oda.kirEkle(10, 3, KirTipi.TOZ);
+        // Dekoratif mobilyalar
+        // Tezgah (üst duvar boyunca sağ tarafta, GÜNEY'e bakar)
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.TEZGAH, 7, 0, Yon.GUNEY));
+        // Yemek masası
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.YEMEK_MASASI, 9, 6, Yon.KUZEY));
+
+        // Mutfak kirleri
+        oda.kirEkle(6, 3, KirTipi.SIVI);
+        oda.kirEkle(14, 8, KirTipi.SIVI);
+        oda.kirEkle(15, 10, KirTipi.LEKE);
+        oda.kirEkle(5, 5, KirTipi.TOZ);
     }
 
     private void yatakOdasiOlustur() {
         Oda oda = model.getOda();
+        model.setAktifOdaTipi(OdaTipi.YATAK_ODASI);
         int sx = 19, sy = 13; // İstasyon sağ alt köşede
         oda.setSarjIstasyonu(sx, sy);
         model.getRobot().sifirla(sx, sy);
 
-        // Yatak (odanın üst ortasında - güneye bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 8, 0, Yon.GUNEY));
-        // Dolap/gardırop yerine kanepe (sol tarafta - doğuya bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 0, 4, Yon.DOGU));
-        // Şezlong / koltuk (sağ alt - batıya bakan)
-        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KANEPE, 15, 8, Yon.BATI));
+        // ── Yatak Odası: Yatak ve dolap ──
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.YATAK, 7, 0, Yon.KUZEY));
+
+        // Dekoratif mobilyalar
+        // Komodin (yatağın yanlarında)
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KOMODIN, 5, 0, Yon.KUZEY));
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.KOMODIN, 12, 0, Yon.KUZEY));
+        // Dolap (sağ duvarda, odaya yani BATI'ya baksın)
+        oda.mobilyaEkle(new com.robotvacuum.model.Mobilya(com.robotvacuum.model.MobilyaTipi.DOLAP, 18, 0, Yon.BATI));
 
         // Yatak odasındaki kirler
-        oda.kirEkle(5, 3, KirTipi.TOZ);
-        oda.kirEkle(12, 6, KirTipi.TOZ);
-        oda.kirEkle(16, 11, KirTipi.LEKE);
+        oda.kirEkle(5, 12, KirTipi.TOZ);
+        oda.kirEkle(14, 10, KirTipi.TOZ);
+        oda.kirEkle(2, 10, KirTipi.LEKE);
     }
 }

@@ -1,7 +1,14 @@
 package com.robotvacuum.model;
 
 public enum MobilyaTipi {
-    KANEPE(3, 2, "Kanepe");
+    KANEPE(5, 3, "Kanepe"),
+    TV_UNITESI(6, 2, "TV Ünitesi"),
+    SEHPA(3, 2, "Sehpa"),
+    YEMEK_MASASI(4, 4, "Yemek Masası"),
+    DOLAP(5, 2, "Dolap"),
+    KOMODIN(2, 2, "Komodin"),
+    TEZGAH(6, 2, "Mutfak Tezgahı"),
+    YATAK(5, 8, "Yatak");
 
     private final int genislikHucresi;
     private final int yukseklikHucresi;
